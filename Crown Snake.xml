@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<anims neck_yaw_axis="x" neck_pitch_axis="-z">
+	<anim name="Standby" id="1" starttick="0" endtick="120" looptype="0"/>
+                <anim name="Walk" id="2" starttick="130" endtick="166" looptype="0"/>
+	<anim name="Attack" id="3" starttick="175" endtick="198" looptype="0"/>
+                <anim name="Die" id="4" starttick="210" endtick="235" looptype="0"/>
+</anims>
+¡¢
