@@ -7,8 +7,8 @@ local function assert(boolean, message)
         echo(
             "devilwalk",
             "devilwalk----------------------------------------------------------------assert failed!!!!:message:" ..
-            tostring(message)
-    )
+                tostring(message)
+        )
     end
 end
 local function getDebugStack()
@@ -76,7 +76,7 @@ local function lineStrings(text)
             ret[#ret + 1] = line
             line = ""
         elseif char == "\r" then
-            else
+        else
             line = line .. char
         end
     end
@@ -174,13 +174,13 @@ function Command:finish()
 end
 
 function Command:stop()
--- echo("devilwalk", "devilwalk--------------------------------------------debug:Command:stop:self.mDebug:")
--- echo("devilwalk",self.mDebug)
+    -- echo("devilwalk", "devilwalk--------------------------------------------debug:Command:stop:self.mDebug:")
+    -- echo("devilwalk",self.mDebug)
 end
 
 function Command:restore()
--- echo("devilwalk", "devilwalk--------------------------------------------debug:Command:restore:self.mDebug:")
--- echo("devilwalk",self.mDebug)
+    -- echo("devilwalk", "devilwalk--------------------------------------------debug:Command:restore:self.mDebug:")
+    -- echo("devilwalk",self.mDebug)
 end
 -----------------------------------------------------------------------------------------Command Callback-----------------------------------------------------------------------------------------
 local Command_Callback = inherit(Command)
@@ -226,8 +226,8 @@ function CommandQueue:destruction()
             echo(
                 "devilwalk",
                 "devilwalk--------------------------------------------warning:CommandQueue:delete:command:" ..
-                tostring(command.mDebug)
-        )
+                    tostring(command.mDebug)
+            )
         end
     end
     self.mCommands = nil
@@ -305,7 +305,7 @@ function Property:lockRead(property, callback)
             self.mCache[property] = value
             callback(value)
         end
-)
+    )
 end
 
 function Property:unlockRead(property)
@@ -319,7 +319,7 @@ function Property:lockWrite(property, callback)
             self.mCache[property] = value
             callback(value)
         end
-)
+    )
 end
 
 function Property:unlockWrite(property)
@@ -345,7 +345,7 @@ function Property:safeRead(property, callback)
                 callback(value)
             end
         end
-)
+    )
 end
 
 function Property:read(property, callback)
@@ -355,17 +355,20 @@ function Property:read(property, callback)
             self.mCache[property] = value
             callback(value)
         end
-)
+    )
 end
 
 function Property:readUntil(property, callback)
-    self:read(property, function(value)
-        if value then
-            callback(value)
-        else
-            self:readUntil(property, callback)
+    self:read(
+        property,
+        function(value)
+            if value then
+                callback(value)
+            else
+                self:readUntil(property, callback)
+            end
         end
-    end)
+    )
 end
 
 function Property:commandRead(property)
@@ -395,7 +398,7 @@ function Property:commandRead(property)
                 self.mCommandRead[property] = nil
             end
         end
-)
+    )
 end
 
 function Property:commandWrite(property, value)
@@ -427,7 +430,7 @@ function Property:commandWrite(property, value)
                 self.mCommandWrite[property] = nil
             end
         end
-)
+    )
 end
 
 function Property:commandFinish(callback, timeOutCallback)
@@ -456,8 +459,8 @@ function Property:commandFinish(callback, timeOutCallback)
                     end
                 end
             }
-)
-)
+        )
+    )
 end
 
 function Property:cache()
@@ -475,7 +478,7 @@ function Property:addPropertyListener(property, callbackKey, callback, parameter
                 self.mCache[property] = value
                 self:notifyProperty(property, value, preValue)
             end
-    )
+        )
     else
         callback(parameter, self.mCache[property], self.mCache[property])
     end
@@ -529,7 +532,7 @@ function PropertyGroup:commandFinish(callback)
             function()
                 _finish(property_instance)
             end
-    )
+        )
     end
 end
 -----------------------------------------------------------------------------------------Entity Syncer----------------------------------------------------------------------------------------
@@ -567,7 +570,7 @@ end
 function EntitySyncer:broadcast(key, value)
     Host.broadcast(
         {mKey = "EntitySyncer", mEntityID = self:getEntity().entityId, mParameter = {mKey = key, mValue = value}}
-)
+    )
 end
 
 function EntitySyncer:receive(parameter)
@@ -585,15 +588,15 @@ function EntitySyncer:receive(parameter)
                         end
                     end
                 }
-    )
-    )
+            )
+        )
     else
         if parameter.mKey == "DisplayName" then
             -- echo("devilwalk","EntitySyncer:receive:DisplayName:"..parameter.mValue)
             self:getEntity():UpdateDisplayName(
                 parameter.mValue.mName,
                 self.mLocalDisplayNameColour or parameter.mValue.mColour
-        )
+            )
         end
     end
 end
@@ -750,7 +753,8 @@ function GlobalProperty.clear()
 end
 
 function GlobalProperty.lockWrite(key, callback)
-    callback = callback or function() end
+    callback = callback or function()
+        end
     GlobalProperty.mResponseCallback =
         GlobalProperty.mResponseCallback or {LockWrite = {}, LockRead = {}, Write = {}, Read = {}, LockAndWrite = {}}
     assert(GlobalProperty.mResponseCallback["LockWrite"][key] == nil, "GlobalProperty.lockWrite:key:" .. key)
@@ -759,12 +763,16 @@ function GlobalProperty.lockWrite(key, callback)
 end
 --must be locked
 function GlobalProperty.write(key, value, callback)
-    callback = callback or function() end
+    callback = callback or function()
+        end
     GlobalProperty.mResponseCallback =
         GlobalProperty.mResponseCallback or {LockWrite = {}, LockRead = {}, Write = {}, Read = {}, LockAndWrite = {}}
     assert(GlobalProperty.mResponseCallback["Write"][key] == nil, "GlobalProperty.Write:key:" .. key)
     GlobalProperty.mResponseCallback["Write"][key] = {callback}
-    Client.sendToHost("GlobalProperty", {mMessage = "Write", mParameter = {mKey = key, mValue = value, mDebug = getDebugStack()}})
+    Client.sendToHost(
+        "GlobalProperty",
+        {mMessage = "Write", mParameter = {mKey = key, mValue = value, mDebug = getDebugStack()}}
+    )
 end
 
 function GlobalProperty.unlockWrite(key)
@@ -772,7 +780,8 @@ function GlobalProperty.unlockWrite(key)
 end
 
 function GlobalProperty.lockRead(key, callback)
-    callback = callback or function() end
+    callback = callback or function()
+        end
     GlobalProperty.mResponseCallback =
         GlobalProperty.mResponseCallback or {LockWrite = {}, LockRead = {}, Write = {}, Read = {}, LockAndWrite = {}}
     GlobalProperty.mResponseCallback["LockRead"][key] = GlobalProperty.mResponseCallback["LockRead"][key] or {}
@@ -785,7 +794,8 @@ function GlobalProperty.unlockRead(key)
 end
 
 function GlobalProperty.read(key, callback)
-    callback = callback or function() end
+    callback = callback or function()
+        end
     GlobalProperty.mResponseCallback =
         GlobalProperty.mResponseCallback or {LockWrite = {}, LockRead = {}, Write = {}, Read = {}, LockAndWrite = {}}
     GlobalProperty.mResponseCallback["Read"][key] = GlobalProperty.mResponseCallback["Read"][key] or {}
@@ -795,13 +805,17 @@ function GlobalProperty.read(key, callback)
 end
 
 function GlobalProperty.lockAndWrite(key, value, callback)
-    callback = callback or function() end
+    callback = callback or function()
+        end
     GlobalProperty.mResponseCallback =
         GlobalProperty.mResponseCallback or {LockWrite = {}, LockRead = {}, Write = {}, Read = {}, LockAndWrite = {}}
     GlobalProperty.mResponseCallback["LockAndWrite"][key] = GlobalProperty.mResponseCallback["LockAndWrite"][key] or {}
     local callbacks = GlobalProperty.mResponseCallback["LockAndWrite"][key]
     callbacks[#callbacks + 1] = callback
-    Client.sendToHost("GlobalProperty", {mMessage = "LockAndWrite", mParameter = {mKey = key, mValue = value, mDebug = getDebugStack()}})
+    Client.sendToHost(
+        "GlobalProperty",
+        {mMessage = "LockAndWrite", mParameter = {mKey = key, mValue = value, mDebug = getDebugStack()}}
+    )
 end
 
 function GlobalProperty.addListener(key, listenerKey, callback, parameter)
@@ -809,7 +823,7 @@ function GlobalProperty.addListener(key, listenerKey, callback, parameter)
     GlobalProperty.mListeners = GlobalProperty.mListeners or {}
     GlobalProperty.mListeners[key] = GlobalProperty.mListeners[key] or {}
     GlobalProperty.mListeners[key][listenerKey] = {mCallback = callback, mParameter = parameter}
-    
+
     GlobalProperty.read(
         key,
         function(value)
@@ -817,7 +831,7 @@ function GlobalProperty.addListener(key, listenerKey, callback, parameter)
                 callback(parameter, value, value)
             end
         end
-)
+    )
 end
 
 function GlobalProperty.removeListener(key, listenerKey)
@@ -841,8 +855,8 @@ function GlobalProperty:receive(parameter)
         local message = string.sub(parameter.mMessage, 1, is_responese - 1)
         if
             GlobalProperty.mResponseCallback and GlobalProperty.mResponseCallback[message] and
-            GlobalProperty.mResponseCallback[message][parameter.mParameter.mKey]
-        then
+                GlobalProperty.mResponseCallback[message][parameter.mParameter.mKey]
+         then
             local callbacks = GlobalProperty.mResponseCallback[message][parameter.mParameter.mKey]
             local callback = callbacks[1]
             if not callback then
@@ -872,57 +886,58 @@ function GlobalProperty:receive(parameter)
                             mValue = GlobalProperty.mProperties[parameter.mParameter.mKey].mValue
                         }
                     }
-            )
+                )
             else
                 GlobalProperty.mCommandList[#GlobalProperty.mCommandList + 1] =
                     new(
-                        Command_Callback,
-                        {
-                            mDebug = GetEntityById(parameter._from).nickname .. ":LockWrite:" .. parameter.mParameter.mKey,
-                            mExecutingCallback = function(command)
-                                if GlobalProperty._canWrite(parameter.mParameter.mKey) then
-                                    GlobalProperty._lockWrite(parameter.mParameter.mKey, parameter._from, parameter.mParameter.mDebug)
-                                    Host.sendTo(
-                                        parameter._from,
-                                        {
-                                            mMessage = "LockWrite_Response",
-                                            mKey = "GlobalProperty",
-                                            mParameter = {
-                                                mKey = parameter.mParameter.mKey,
-                                                mValue = GlobalProperty.mProperties[parameter.mParameter.mKey].mValue
-                                            }
+                    Command_Callback,
+                    {
+                        mDebug = GetEntityById(parameter._from).nickname .. ":LockWrite:" .. parameter.mParameter.mKey,
+                        mExecutingCallback = function(command)
+                            if GlobalProperty._canWrite(parameter.mParameter.mKey) then
+                                GlobalProperty._lockWrite(
+                                    parameter.mParameter.mKey,
+                                    parameter._from,
+                                    parameter.mParameter.mDebug
+                                )
+                                Host.sendTo(
+                                    parameter._from,
+                                    {
+                                        mMessage = "LockWrite_Response",
+                                        mKey = "GlobalProperty",
+                                        mParameter = {
+                                            mKey = parameter.mParameter.mKey,
+                                            mValue = GlobalProperty.mProperties[parameter.mParameter.mKey].mValue
                                         }
-                                    )
-                                    command.mState = Command.EState.Finish
-                                end
-                            end,
-                            mTimeOutProcess = function(command)
-                                echo("devilwalk", "GlobalProperty write lock time out:" .. command.mDebug)
-                                echo("devilwalk", parameter.mParameter.mDebug)
-                                if
-                                    GlobalProperty.mProperties[parameter.mParameter.mKey]
-                                then
-                                    if GlobalProperty.mProperties[parameter.mParameter.mKey].mWriteLocked then
-                                        echo(
-                                            "devilwalk",
-                                            GetEntityById(GlobalProperty.mProperties[parameter.mParameter.mKey].mWriteLocked.mPlayerID).nickname ..
-                                            " write locked"
-                                    )
-                                    end
-                                    if GlobalProperty.mProperties[parameter.mParameter.mKey].mReadLocked then
-                                        for _, info in pairs(GlobalProperty.mProperties[parameter.mParameter.mKey].mReadLocked) do
-                                            echo(
-                                                "devilwalk",
-                                                GetEntityById(info.mPlayerID).nickname ..
-                                                " read locked"
-                                        )
-                                        end
-                                    end
-                                    echo("devilwalk", GlobalProperty.mProperties[parameter.mParameter.mKey])
-                                end
+                                    }
+                                )
+                                command.mState = Command.EState.Finish
                             end
-                        }
-            )
+                        end,
+                        mTimeOutProcess = function(command)
+                            echo("devilwalk", "GlobalProperty write lock time out:" .. command.mDebug)
+                            echo("devilwalk", parameter.mParameter.mDebug)
+                            if GlobalProperty.mProperties[parameter.mParameter.mKey] then
+                                if GlobalProperty.mProperties[parameter.mParameter.mKey].mWriteLocked then
+                                    echo(
+                                        "devilwalk",
+                                        GetEntityById(
+                                            GlobalProperty.mProperties[parameter.mParameter.mKey].mWriteLocked.mPlayerID
+                                        ).nickname .. " write locked"
+                                    )
+                                end
+                                if GlobalProperty.mProperties[parameter.mParameter.mKey].mReadLocked then
+                                    for _, info in pairs(
+                                        GlobalProperty.mProperties[parameter.mParameter.mKey].mReadLocked
+                                    ) do
+                                        echo("devilwalk", GetEntityById(info.mPlayerID).nickname .. " read locked")
+                                    end
+                                end
+                                echo("devilwalk", GlobalProperty.mProperties[parameter.mParameter.mKey])
+                            end
+                        end
+                    }
+                )
             end
         elseif parameter.mMessage == "UnlockWrite" then -- host
             GlobalProperty._unlockWrite(parameter.mParameter.mKey, parameter._from)
@@ -938,7 +953,7 @@ function GlobalProperty:receive(parameter)
                         mValue = parameter.mParameter.mValue
                     }
                 }
-        )
+            )
         elseif parameter.mMessage == "LockRead" then -- host
             if GlobalProperty._canRead(parameter.mParameter.mKey) then
                 GlobalProperty._lockRead(parameter.mParameter.mKey, parameter._from, parameter.mParameter.mDebug)
@@ -952,57 +967,58 @@ function GlobalProperty:receive(parameter)
                             mValue = GlobalProperty.mProperties[parameter.mParameter.mKey].mValue
                         }
                     }
-            )
+                )
             else
                 GlobalProperty.mCommandList[#GlobalProperty.mCommandList + 1] =
                     new(
-                        Command_Callback,
-                        {
-                            mDebug = tostring(parameter._from) .. ":LockRead:" .. parameter.mParameter.mKey,
-                            mExecutingCallback = function(command)
-                                if GlobalProperty._canRead(parameter.mParameter.mKey) then
-                                    GlobalProperty._lockRead(parameter.mParameter.mKey, parameter._from, parameter.mParameter.mDebug)
-                                    Host.sendTo(
-                                        parameter._from,
-                                        {
-                                            mMessage = "LockRead_Response",
-                                            mKey = "GlobalProperty",
-                                            mParameter = {
-                                                mKey = parameter.mParameter.mKey,
-                                                mValue = GlobalProperty.mProperties[parameter.mParameter.mKey].mValue
-                                            }
+                    Command_Callback,
+                    {
+                        mDebug = tostring(parameter._from) .. ":LockRead:" .. parameter.mParameter.mKey,
+                        mExecutingCallback = function(command)
+                            if GlobalProperty._canRead(parameter.mParameter.mKey) then
+                                GlobalProperty._lockRead(
+                                    parameter.mParameter.mKey,
+                                    parameter._from,
+                                    parameter.mParameter.mDebug
+                                )
+                                Host.sendTo(
+                                    parameter._from,
+                                    {
+                                        mMessage = "LockRead_Response",
+                                        mKey = "GlobalProperty",
+                                        mParameter = {
+                                            mKey = parameter.mParameter.mKey,
+                                            mValue = GlobalProperty.mProperties[parameter.mParameter.mKey].mValue
                                         }
-                                    )
-                                    command.mState = Command.EState.Finish
-                                end
-                            end,
-                            mTimeOutProcess = function(command)
-                                echo("devilwalk", "GlobalProperty read lock time out:" .. command.mDebug)
-                                echo("devilwalk", parameter.mParameter.mDebug)
-                                if
-                                    GlobalProperty.mProperties[parameter.mParameter.mKey]
-                                then
-                                    if GlobalProperty.mProperties[parameter.mParameter.mKey].mWriteLocked then
-                                        echo(
-                                            "devilwalk",
-                                            GetEntityById(GlobalProperty.mProperties[parameter.mParameter.mKey].mWriteLocked.mPlayerID).nickname ..
-                                            " write locked"
-                                    )
-                                    end
-                                    if GlobalProperty.mProperties[parameter.mParameter.mKey].mReadLocked then
-                                        for _, info in pairs(GlobalProperty.mProperties[parameter.mParameter.mKey].mReadLocked) do
-                                            echo(
-                                                "devilwalk",
-                                                GetEntityById(info.mPlayerID).nickname ..
-                                                " read locked"
-                                        )
-                                        end
-                                    end
-                                    echo("devilwalk", GlobalProperty.mProperties[parameter.mParameter.mKey])
-                                end
+                                    }
+                                )
+                                command.mState = Command.EState.Finish
                             end
-                        }
-            )
+                        end,
+                        mTimeOutProcess = function(command)
+                            echo("devilwalk", "GlobalProperty read lock time out:" .. command.mDebug)
+                            echo("devilwalk", parameter.mParameter.mDebug)
+                            if GlobalProperty.mProperties[parameter.mParameter.mKey] then
+                                if GlobalProperty.mProperties[parameter.mParameter.mKey].mWriteLocked then
+                                    echo(
+                                        "devilwalk",
+                                        GetEntityById(
+                                            GlobalProperty.mProperties[parameter.mParameter.mKey].mWriteLocked.mPlayerID
+                                        ).nickname .. " write locked"
+                                    )
+                                end
+                                if GlobalProperty.mProperties[parameter.mParameter.mKey].mReadLocked then
+                                    for _, info in pairs(
+                                        GlobalProperty.mProperties[parameter.mParameter.mKey].mReadLocked
+                                    ) do
+                                        echo("devilwalk", GetEntityById(info.mPlayerID).nickname .. " read locked")
+                                    end
+                                end
+                                echo("devilwalk", GlobalProperty.mProperties[parameter.mParameter.mKey])
+                            end
+                        end
+                    }
+                )
             end
         elseif parameter.mMessage == "UnlockRead" then -- host
             GlobalProperty._unlockRead(parameter.mParameter.mKey, parameter._from)
@@ -1017,7 +1033,7 @@ function GlobalProperty:receive(parameter)
                         mValue = GlobalProperty.mProperties[parameter.mParameter.mKey].mValue
                     }
                 }
-        )
+            )
         elseif parameter.mMessage == "LockAndWrite" then -- host
             if GlobalProperty._canWrite(parameter.mParameter.mKey) then
                 GlobalProperty._lockWrite(parameter.mParameter.mKey, parameter._from, parameter.mParameter.mDebug)
@@ -1032,70 +1048,71 @@ function GlobalProperty:receive(parameter)
                             mValue = parameter.mParameter.mValue
                         }
                     }
-            )
+                )
             else
                 GlobalProperty.mCommandList[#GlobalProperty.mCommandList + 1] =
                     new(
-                        Command_Callback,
-                        {
-                            mDebug = GetEntityById(parameter._from).nickname ..
+                    Command_Callback,
+                    {
+                        mDebug = GetEntityById(parameter._from).nickname ..
                             ":LockAndWrite:" .. parameter.mParameter.mKey,
-                            mExecutingCallback = function(command)
-                                if GlobalProperty._canWrite(parameter.mParameter.mKey) then
-                                    GlobalProperty._lockWrite(parameter.mParameter.mKey, parameter._from, parameter.mParameter.mDebug)
-                                    GlobalProperty._write(
-                                        parameter.mParameter.mKey,
-                                        parameter.mParameter.mValue,
-                                        parameter._from
-                                    )
-                                    Host.sendTo(
-                                        parameter._from,
-                                        {
-                                            mMessage = "LockAndWrite_Response",
-                                            mKey = "GlobalProperty",
-                                            mParameter = {
-                                                mKey = parameter.mParameter.mKey,
-                                                mValue = parameter.mParameter.mValue
-                                            }
+                        mExecutingCallback = function(command)
+                            if GlobalProperty._canWrite(parameter.mParameter.mKey) then
+                                GlobalProperty._lockWrite(
+                                    parameter.mParameter.mKey,
+                                    parameter._from,
+                                    parameter.mParameter.mDebug
+                                )
+                                GlobalProperty._write(
+                                    parameter.mParameter.mKey,
+                                    parameter.mParameter.mValue,
+                                    parameter._from
+                                )
+                                Host.sendTo(
+                                    parameter._from,
+                                    {
+                                        mMessage = "LockAndWrite_Response",
+                                        mKey = "GlobalProperty",
+                                        mParameter = {
+                                            mKey = parameter.mParameter.mKey,
+                                            mValue = parameter.mParameter.mValue
                                         }
-                                    )
-                                    command.mState = Command.EState.Finish
-                                end
-                            end,
-                            mTimeOutProcess = function(command)
-                                echo("devilwalk", "GlobalProperty write lock time out:" .. command.mDebug)
-                                echo("devilwalk", parameter.mParameter.mDebug)
-                                if
-                                    GlobalProperty.mProperties[parameter.mParameter.mKey]
-                                then
-                                    if GlobalProperty.mProperties[parameter.mParameter.mKey].mWriteLocked then
-                                        echo(
-                                            "devilwalk",
-                                            GetEntityById(GlobalProperty.mProperties[parameter.mParameter.mKey].mWriteLocked.mPlayerID).nickname ..
-                                            " write locked"
-                                    )
-                                    end
-                                    if GlobalProperty.mProperties[parameter.mParameter.mKey].mReadLocked then
-                                        for _, info in pairs(GlobalProperty.mProperties[parameter.mParameter.mKey].mReadLocked) do
-                                            echo(
-                                                "devilwalk",
-                                                GetEntityById(info.mPlayerID).nickname ..
-                                                " read locked"
-                                        )
-                                        end
-                                    end
-                                    echo("devilwalk", GlobalProperty.mProperties[parameter.mParameter.mKey])
-                                end
+                                    }
+                                )
+                                command.mState = Command.EState.Finish
                             end
-                        }
-            )
+                        end,
+                        mTimeOutProcess = function(command)
+                            echo("devilwalk", "GlobalProperty write lock time out:" .. command.mDebug)
+                            echo("devilwalk", parameter.mParameter.mDebug)
+                            if GlobalProperty.mProperties[parameter.mParameter.mKey] then
+                                if GlobalProperty.mProperties[parameter.mParameter.mKey].mWriteLocked then
+                                    echo(
+                                        "devilwalk",
+                                        GetEntityById(
+                                            GlobalProperty.mProperties[parameter.mParameter.mKey].mWriteLocked.mPlayerID
+                                        ).nickname .. " write locked"
+                                    )
+                                end
+                                if GlobalProperty.mProperties[parameter.mParameter.mKey].mReadLocked then
+                                    for _, info in pairs(
+                                        GlobalProperty.mProperties[parameter.mParameter.mKey].mReadLocked
+                                    ) do
+                                        echo("devilwalk", GetEntityById(info.mPlayerID).nickname .. " read locked")
+                                    end
+                                end
+                                echo("devilwalk", GlobalProperty.mProperties[parameter.mParameter.mKey])
+                            end
+                        end
+                    }
+                )
             end
         elseif parameter.mMessage == "PropertyChange" then -- client
             GlobalProperty.notify(
                 parameter.mParameter.mKey,
                 parameter.mParameter.mValue,
                 parameter.mParameter.mPreValue
-        )
+            )
         end
     end
 end
@@ -1111,22 +1128,24 @@ function GlobalProperty._lockWrite(key, playerID, debugInfo)
     )
     -- echo("devilwalk", "GlobalProperty._lockWrite:key,playerID:" .. tostring(key) .. "," .. tostring(playerID))
     GlobalProperty.mProperties[key].mWriteLocked = {mPlayerID = playerID, mDebug = debugInfo}
--- GlobalProperty._lockRead(key, playerID)
+    -- GlobalProperty._lockRead(key, playerID)
 end
 
 function GlobalProperty._unlockWrite(key, playerID)
     assert(
-        GlobalProperty.mProperties[key].mWriteLocked and GlobalProperty.mProperties[key].mWriteLocked.mPlayerID == playerID,
+        GlobalProperty.mProperties[key].mWriteLocked and
+            GlobalProperty.mProperties[key].mWriteLocked.mPlayerID == playerID,
         "GlobalProperty._unlockWrite:GlobalProperty.mProperties[key].mWriteLocked ~= playerID"
     )
     -- echo("devilwalk", "GlobalProperty._unlockWrite:key,playerID:" .. tostring(key) .. "," .. tostring(playerID))
     GlobalProperty.mProperties[key].mWriteLocked = nil
--- GlobalProperty._unlockRead(key, playerID)
+    -- GlobalProperty._unlockRead(key, playerID)
 end
 
 function GlobalProperty._write(key, value, playerID)
     assert(
-        GlobalProperty.mProperties[key].mWriteLocked and GlobalProperty.mProperties[key].mWriteLocked.mPlayerID == playerID,
+        GlobalProperty.mProperties[key].mWriteLocked and
+            GlobalProperty.mProperties[key].mWriteLocked.mPlayerID == playerID,
         "GlobalProperty._write:GlobalProperty.mProperties[key].mWriteLocked ~= playerID"
     )
     -- echo("devilwalk", "GlobalProperty._write:key,playerID,value:" .. tostring(key) .. "," .. tostring(playerID))
@@ -1140,13 +1159,16 @@ function GlobalProperty._write(key, value, playerID)
             mKey = "GlobalProperty",
             mParameter = {mKey = key, mValue = value, mPreValue = pre_value, mPlayerID = playerID}
         }
-)
+    )
 end
 
 function GlobalProperty._lockRead(key, playerID, debugInfo)
     --echo("devilwalk", "GlobalProperty._lockRead:key,playerID:" .. tostring(key) .. "," .. tostring(playerID))
     GlobalProperty.mProperties[key].mReadLocked = GlobalProperty.mProperties[key].mReadLocked or {}
-    GlobalProperty.mProperties[key].mReadLocked[#GlobalProperty.mProperties[key].mReadLocked + 1] = {mPlayerID = playerID, mDebug = debugInfo}
+    GlobalProperty.mProperties[key].mReadLocked[#GlobalProperty.mProperties[key].mReadLocked + 1] = {
+        mPlayerID = playerID,
+        mDebug = debugInfo
+    }
 end
 
 function GlobalProperty._unlockRead(key, playerID)
@@ -1201,7 +1223,7 @@ function PlayerManager.initialize()
                 PlayerManager.hideAll()
             end
         end
-)
+    )
 end
 
 function PlayerManager.onPlayerIn(entityWatcher)
@@ -1284,18 +1306,54 @@ local Client_GameMonster = {}
 GameConfig.mMonsterPointBlockID = 2101
 GameConfig.mHomePointBlockID = 2102
 GameConfig.mMonsterLibrary = {
-    {mModelResource = {hash = "FurFY6DD4jPZtEfTABFdmRQ4zKkx", pid = "4721", ext = "FBX", }, mHP = 49, mDefence = {{mType = "穿刺", mValue = 0}}, mAttack = {mType = "物理", mValue = 10}, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mSpeed = 1}
+    {
+        mModelResource = {hash = "Fta_KeWpZ2Uut43HCCwZuhIENsUk", pid = "6723", ext = "FBX"},
+        mHP = 49,
+        mDefence = {{mType = "穿刺", mValue = 0}},
+        mAttack = {mType = "物理", mValue = 10},
+        mAttackTime = 1,
+        mStopTime = 1,
+        mAttackRange = 1,
+        mSpeed = 1
+    },
+    {
+        mModelResource = {hash = "FkpOQ8tZE4uAPnRoz5dr6SJenXHr", pid = "6722", ext = "FBX"},
+        mHP = 49,
+        mDefence = {{mType = "穿刺", mValue = 0}},
+        mAttack = {mType = "物理", mValue = 10},
+        mAttackTime = 1,
+        mStopTime = 1,
+        mAttackRange = 1,
+        mSpeed = 1
+    },
+    {
+        mModelResource = {hash = "FklKvN9casvBiqCrvzMjFISaTt_1", pid = "6721", ext = "FBX"},
+        mHP = 49,
+        mDefence = {{mType = "穿刺", mValue = 0}},
+        mAttack = {mType = "物理", mValue = 10},
+        mAttackTime = 1,
+        mStopTime = 1,
+        mAttackRange = 1,
+        mSpeed = 1
+    }
 }
 GameConfig.mTerrainLibrary = {
-    {mTemplateResource = {hash = "FkokLxC_zI7okepx2bquNb-d85h7", pid = "5452", ext = "bmax", }, mLevel = 1},
-    {mTemplateResource = {hash = "Fo_ZXJzECmw0-fPgj1ZSoLkjgnYA", pid = "5423", ext = "bmax", }, mLevel = 2},
-    {mTemplateResource = {hash = "Fr1x_xY8fzz4YdLAxCYxfrJuXxUR", pid = "5424", ext = "bmax", }, mLevel = 3}}
-GameConfig.mSafeHouse = {mTemplateResource = {hash = "FpHOk_oMV1lBqaTtMLjqAtqyzJp4", pid = "5453", ext = "bmax", }}
-GameConfig.mMatch = {
-    mMonsterGenerateSpeed = 0.2, mMonsterCount = 36,
+    {mTemplateResource = {hash = "FkokLxC_zI7okepx2bquNb-d85h7", pid = "5452", ext = "bmax"}},
+    {mTemplateResource = {hash = "Fo_ZXJzECmw0-fPgj1ZSoLkjgnYA", pid = "5423", ext = "bmax"}},
+    {mTemplateResource = {hash = "Fr1x_xY8fzz4YdLAxCYxfrJuXxUR", pid = "5424", ext = "bmax"}}
 }
-GameConfig.mPlayers = {{mType = "战士", mHP = 70, mAttack = {mType = "穿刺", mValue = 10}, mDefence = {{mType = "物理", mValue = 0}}}, mSpeed = 1, mAttackTime = 1, mStopTime = 0}
-GameConfig.mPrepareTime = 1
+GameConfig.mSafeHouse = {mTemplateResource = {hash = "FpHOk_oMV1lBqaTtMLjqAtqyzJp4", pid = "5453", ext = "bmax"}}
+GameConfig.mMatch = {
+    mMonsterGenerateSpeed = 0.2,
+    mMonsterCount = 36
+}
+GameConfig.mPlayers = {
+    {mType = "战士", mHP = 70, mAttack = {mType = "穿刺", mValue = 10}, mDefence = {{mType = "物理", mValue = 0}}},
+    mSpeed = 1,
+    mAttackTime = 1,
+    mStopTime = 0
+}
+GameConfig.mPrepareTime = 5
 -----------------------------------------------------------------------------------------GameCompute-----------------------------------------------------------------------------------
 function GameCompute.computePlayerHP(level)
     return 7 / GameCompute.computeMonsterAttackTime() * GameCompute.computeMonsterAttackValue(level)
@@ -1335,6 +1393,27 @@ end
 function GameCompute.computeMonsterGenerateCountScale(players)
     return #players
 end
+
+function monLootGold(lv)
+    local function getNextLvTime(lv)
+        if lv < 11 then
+            return 0.02 * lv ^ 2 + 0.3 * lv + 1.08
+        elseif lv >= 11 and lv < 31 then
+            return 0.02 * lv ^ 2 + 0.3 * lv + 1.08
+        elseif lv >= 31 and lv > 61 then
+            return 0.06 * lv ^ 2 + 0.1 * lv - 27.5
+        elseif lv >= 61 then
+            return 0.25 * lv ^ 2 + 0.3 * lv - 710
+        end
+    end
+    local nextLvTime = getNextLvTime(lv)
+    local killEfficiency = 5 / 60
+    local goldEfficiency = lv * 20 + 40
+    local nextLvGold = goldEfficiency * nextLvTime
+    local nextLvMonNum = nextLvTime / killEfficiency
+    local monLootGold = nextLvGold / nextLvMonNum
+    return monLootGold
+end
 -----------------------------------------------------------------------------------------GamePlayerProperty-----------------------------------------------------------------------------------
 function GamePlayerProperty:construction(parameter)
     self.mPlayerID = parameter.mPlayerID
@@ -1371,19 +1450,23 @@ end
 function Host_Game:construction()
     Host_Game.msInstance = self
     self.mCommandQueue = new(CommandQueue)
-    
+
     self.mSafeHouse = {}
     local x, y, z = GetHomePosition()
     x, y, z = ConvertToBlockIndex(x, y + 0.5, z)
     y = y - 1
-    self.mSafeHouse.mTerrain = new(Host_GameTerrain, {mTemplateResource = GameConfig.mSafeHouse.mTemplateResource, mHomePosition = {x, y + 100, z}})
+    self.mSafeHouse.mTerrain =
+        new(
+        Host_GameTerrain,
+        {mTemplateResource = GameConfig.mSafeHouse.mTemplateResource, mHomePosition = {x, y + 100, z}}
+    )
     self.mSafeHouse.mTerrain:applyTemplate(
         function()
             self.mPlayerManager = new(Host_GamePlayerManager)
             self.mMonsterManager = new(Host_GameMonsterManager)
             self:start()
         end
-)
+    )
 end
 
 function Host_Game:destruction()
@@ -1422,10 +1505,12 @@ function Host_Game:setScene(scene)
     end
     self.mScene = scene
     if self.mScene then
-        self.mScene.mTerrain:applyTemplate(function()
-            self.mPlayerManager:setScene(self.mScene)
-            self.mMonsterManager:setScene(self.mScene)
-        end)
+        self.mScene.mTerrain:applyTemplate(
+            function()
+                self.mPlayerManager:setScene(self.mScene)
+                self.mMonsterManager:setScene(self.mScene)
+            end
+        )
     else
         self.mPlayerManager:setScene(self.mSafeHouse)
     end
@@ -1440,46 +1525,92 @@ end
 
 function Host_Game:_nextMatch()
     self.mPlayerManager:initializePlayerProperties("mHP")
-    self.mCommandQueue:post(new(Command_Callback, {mDebug = "Host_Game:_nextMatch/Prepare", mExecutingCallback = function(command)
-        command.mTimer = command.mTimer or new(Timer)
-        if command.mTimer:total() > GameConfig.mPrepareTime then
-            command.mState = Command.EState.Finish
-        end
-    end}))
-    self.mCommandQueue:post(new(Command_Callback, {mDebug = "Host_Game:_nextMatch/Start", mExecuteCallback = function(command)
-        self:_startMatch()
-        command.mState = Command.EState.Finish
-    end}))
-    self.mCommandQueue:post(new(Command_Callback, {mDebug = "Host_Game:_nextMatch/Check", mTimeOutProcess = function() end, mExecutingCallback = function(command)
-        if self.mPlayerManager:isAllDead() then
-            self.mCommandQueue:post(new(Command_Callback, {mDebug = "Host_Game:_nextMatch/Restart", mTimeOutProcess = function() end, mExecutingCallback = function(command)
-                command.mTimer = command.mTimer or new(Timer)
-                if command.mTimer:total() >= 5 then
-                    command.mState = Command.EState.Finish
-                    self:start()
+    self.mCommandQueue:post(
+        new(
+            Command_Callback,
+            {
+                mDebug = "Host_Game:_nextMatch/Prepare",
+                mExecutingCallback = function(command)
+                    command.mTimer = command.mTimer or new(Timer)
+                    if command.mTimer:total() > GameConfig.mPrepareTime then
+                        command.mState = Command.EState.Finish
+                    end
                 end
-            end}))
-            command.mState = Command.EState.Finish
-        elseif self.mMonsterManager:isAllDead() then
-            self.mCommandQueue:post(new(Command_Callback, {mDebug = "Host_Game:_nextMatch/NextMatch", mTimeOutProcess = function() end, mExecutingCallback = function(command)
-                command.mTimer = command.mTimer or new(Timer)
-                if command.mTimer:total() >= 5 then
+            }
+        )
+    )
+    self.mCommandQueue:post(
+        new(
+            Command_Callback,
+            {
+                mDebug = "Host_Game:_nextMatch/Start",
+                mExecuteCallback = function(command)
+                    self:_startMatch()
                     command.mState = Command.EState.Finish
-                    self:setScene()
-                    self.mLevel = self.mLevel + 1
-                    self:_nextMatch()
                 end
-            end}))
-            command.mState = Command.EState.Finish
-        end
-    end}))
+            }
+        )
+    )
+    self.mCommandQueue:post(
+        new(
+            Command_Callback,
+            {
+                mDebug = "Host_Game:_nextMatch/Check",
+                mTimeOutProcess = function()
+                end,
+                mExecutingCallback = function(command)
+                    if self.mPlayerManager:isAllDead() then
+                        self.mCommandQueue:post(
+                            new(
+                                Command_Callback,
+                                {
+                                    mDebug = "Host_Game:_nextMatch/Restart",
+                                    mTimeOutProcess = function()
+                                    end,
+                                    mExecutingCallback = function(command)
+                                        command.mTimer = command.mTimer or new(Timer)
+                                        if command.mTimer:total() >= 5 then
+                                            command.mState = Command.EState.Finish
+                                            self:start()
+                                        end
+                                    end
+                                }
+                            )
+                        )
+                        command.mState = Command.EState.Finish
+                    elseif self.mMonsterManager:isAllDead() then
+                        self.mCommandQueue:post(
+                            new(
+                                Command_Callback,
+                                {
+                                    mDebug = "Host_Game:_nextMatch/NextMatch",
+                                    mTimeOutProcess = function()
+                                    end,
+                                    mExecutingCallback = function(command)
+                                        command.mTimer = command.mTimer or new(Timer)
+                                        if command.mTimer:total() >= 5 then
+                                            command.mState = Command.EState.Finish
+                                            self:setScene()
+                                            self.mLevel = self.mLevel + 1
+                                            self:_nextMatch()
+                                        end
+                                    end
+                                }
+                            )
+                        )
+                        command.mState = Command.EState.Finish
+                    end
+                end
+            }
+        )
+    )
 end
 
 function Host_Game:_startMatch()
     local scene = {mLevel = self.mLevel}
     local terrains = {}
     for _, terrain in pairs(GameConfig.mTerrainLibrary) do
-        if terrain.mLevel == self.mLevel then
+        if not terrain.mLevel or terrain.mLevel == self.mLevel then
             terrains[#terrains + 1] = terrain
         end
     end
@@ -1494,7 +1625,7 @@ end
 -----------------------------------------------------------------------------------------Host_GamePlayerManager-----------------------------------------------------------------------------------
 function Host_GamePlayerManager:construction()
     self.mPlayers = {}
-    
+
     self:_createPlayer(EntityWatcher.get(GetPlayerId()))
     PlayerManager.addEventListener(
         "PlayerIn",
@@ -1533,6 +1664,7 @@ function Host_GamePlayerManager:receive(parameter)
 end
 
 function Host_GamePlayerManager:reset()
+    self:broadcast("Reset")
     for _, player in pairs(self.mPlayers) do
         delete(player)
     end
@@ -1571,6 +1703,7 @@ end
 
 function Host_GamePlayerManager:_destroyPlayer(id)
     echo("devilwalk", "Host_GamePlayerManager:_destroyPlayer:id:" .. tostring(id))
+    self:broadcast("DestroyPlayer", {mPlayerID = id})
     for i, player in pairs(self.mPlayers) do
         if player:getID() == id then
             delete(player)
@@ -1597,17 +1730,18 @@ end
 -----------------------------------------------------------------------------------------Host_GameMonsterManager-----------------------------------------------------------------------------------
 function Host_GameMonsterManager:construction()
     self.mMonsters = {}
-    
+
     Host.addListener("GameMonsterManager", self)
 end
 
 function Host_GameMonsterManager:destruction()
     self:reset()
-    
+
     Host.removeListener("GameMonsterManager", self)
 end
 
 function Host_GameMonsterManager:reset()
+    self:broadcast("Reset")
     for _, monster in pairs(self.mMonsters) do
         delete(monster)
     end
@@ -1617,9 +1751,18 @@ end
 
 function Host_GameMonsterManager:setScene(scene)
     self:reset()
-    
+
     if scene and scene.mTerrain and #scene.mTerrain:getMonsterPoints() > 0 then
-        self.mMonsterGenerator = new(Host_GameMonsterGenerator, {mPositions = scene.mTerrain:getMonsterPoints(), mGenerateSpeed = GameConfig.mMatch.mMonsterGenerateSpeed, mGenerateCount = GameConfig.mMatch.mMonsterCount * GameCompute.computeMonsterGenerateCountScale(Host_Game.singleton():getPlayerManager().mPlayers)})
+        self.mMonsterGenerator =
+            new(
+            Host_GameMonsterGenerator,
+            {
+                mPositions = scene.mTerrain:getMonsterPoints(),
+                mGenerateSpeed = GameConfig.mMatch.mMonsterGenerateSpeed,
+                mGenerateCount = GameConfig.mMatch.mMonsterCount *
+                    GameCompute.computeMonsterGenerateCountScale(Host_Game.singleton():getPlayerManager().mPlayers)
+            }
+        )
     else
         delete(self.mMonsterGenerator)
         self.mMonsterGenerator = nil
@@ -1653,7 +1796,15 @@ function Host_GameMonsterManager:isAllDead()
 end
 
 function Host_GameMonsterManager:_createMonster(parameter)
-    local ret = new(Host_GameMonster, {mConfigIndex = parameter.mConfigIndex, mPosition = parameter.mPosition, mLevel = GameCompute.computeMonsterLevel(Host_Game.singleton():getPlayerManager().mPlayers)})
+    local ret =
+        new(
+        Host_GameMonster,
+        {
+            mConfigIndex = parameter.mConfigIndex,
+            mPosition = parameter.mPosition,
+            mLevel = GameCompute.computeMonsterLevel(Host_Game.singleton():getPlayerManager().mPlayers)
+        }
+    )
     self.mMonsters[#self.mMonsters + 1] = ret
     self:broadcast("CreateMonster", {mEntityID = ret:getID()})
     return ret
@@ -1694,7 +1845,11 @@ function Host_GameTerrain:applyTemplate(callback)
             local offset = {self.mHomePosition[1] + 1, self.mHomePosition[2] + 1, self.mHomePosition[3] + 1}
             for _, block in pairs(self.mTemplate.mBlocks) do
                 if block[4] == GameConfig.mMonsterPointBlockID then
-                    self.mMonsterPoints[#self.mMonsterPoints + 1] = {block[1] + offset[1], block[2] + offset[2], block[3] + offset[3]}
+                    self.mMonsterPoints[#self.mMonsterPoints + 1] = {
+                        block[1] + offset[1],
+                        block[2] + offset[2],
+                        block[3] + offset[3]
+                    }
                     setBlock(block[1] + offset[1], block[2] + offset[2], block[3] + offset[3], 0)
                 elseif block[4] == GameConfig.mHomePointBlockID then
                     self.mHomePoint = {block[1] + offset[1], block[2] + offset[2], block[3] + offset[3]}
@@ -1708,10 +1863,13 @@ function Host_GameTerrain:applyTemplate(callback)
             callback()
         end
     elseif self.mTemplateResource then
-        GetResourceModel(self.mTemplateResource, function(path)
-            self.mTemplate = LoadTemplate(path)
-            self:applyTemplate(callback)
-        end)
+        GetResourceModel(
+            self.mTemplateResource,
+            function(path)
+                self.mTemplate = LoadTemplate(path)
+                self:applyTemplate(callback)
+            end
+        )
     end
 end
 
@@ -1765,25 +1923,38 @@ function Host_GamePlayer:construction(parameter)
     self.mPlayerID = parameter.mEntityWatcher.id
     self.mProperty = new(GamePlayerProperty, {mPlayerID = self.mPlayerID})
     self.mConfigIndex = parameter.mConfigIndex
-    
+
     self.mProperty:safeWrite("mConfigIndex", self.mConfigIndex)
-    self.mProperty:addPropertyListener("mHPLevel", self, function(_, value)
-        if value then
-            self.mProperty:safeWrite("mHP", GameCompute.computePlayerHP(value))
+    self.mProperty:addPropertyListener(
+        "mHPLevel",
+        self,
+        function(_, value)
+            if value then
+                self.mProperty:safeWrite("mHP", GameCompute.computePlayerHP(value))
+            end
         end
-    end)
-    self.mProperty:addPropertyListener("mAttackValueLevel", self, function(_, value)
-        end)
-    self.mProperty:addPropertyListener("mAttackTimeLevel", self, function(_, value)
-        end)
-    
+    )
+    self.mProperty:addPropertyListener(
+        "mAttackValueLevel",
+        self,
+        function(_, value)
+        end
+    )
+    self.mProperty:addPropertyListener(
+        "mAttackTimeLevel",
+        self,
+        function(_, value)
+        end
+    )
+
     Host.addListener(self:_getSendKey(), self)
 end
 
 function Host_GamePlayer:destruction()
-    self.mProperty:removePropertyListener("mHPLevel",self)
-    self.mProperty:removePropertyListener("mAttackValueLevel",self)
-    self.mProperty:removePropertyListener("mAttackTimeLevel",self)
+    echo("devilwalk", "Host_GamePlayer:destruction")
+    self.mProperty:removePropertyListener("mHPLevel", self)
+    self.mProperty:removePropertyListener("mAttackValueLevel", self)
+    self.mProperty:removePropertyListener("mAttackTimeLevel", self)
     delete(self.mProperty)
     Host.removeListener(self:_getSendKey(), self)
 end
@@ -1796,8 +1967,14 @@ function Host_GamePlayer:receive(parameter)
 end
 
 function Host_GamePlayer:onHit(monster)
-    self.mProperty:safeWrite("mHP", math.max(self.mProperty:cache().mHP - GameCompute.computeMonsterAttackValue(monster:getProperty():cache().mLevel),0))
-    
+    self.mProperty:safeWrite(
+        "mHP",
+        math.max(
+            self.mProperty:cache().mHP - GameCompute.computeMonsterAttackValue(monster:getProperty():cache().mLevel),
+            0
+        )
+    )
+
     self:_checkDead()
 end
 
@@ -1816,21 +1993,31 @@ end
 function Host_GamePlayer:initializeProperty(propertyName)
     if propertyName then
         if propertyName == "mHP" then
-            self.mProperty:safeRead("mHPLevel", function(value)
-                self.mProperty:safeWrite("mHP", GameCompute.computePlayerHP(value))
-                self:_checkDead()
-            end)
+            self.mProperty:safeRead(
+                "mHPLevel",
+                function(value)
+                    self.mProperty:safeWrite("mHP", GameCompute.computePlayerHP(value))
+                    self:_checkDead()
+                end
+            )
         end
     else
-        self.mProperty:safeRead("mHPLevel", function(value)
-            self.mProperty:safeWrite("mHP", GameCompute.computePlayerHP(value))
-            self:_checkDead()
-        end)
+        self.mProperty:safeRead(
+            "mHPLevel",
+            function(value)
+                self.mProperty:safeWrite("mHP", GameCompute.computePlayerHP(value))
+                self:_checkDead()
+            end
+        )
     end
 end
 
 function Host_GamePlayer:setPosition(position)
     SetEntityBlockPos(self.mPlayerID, position[1], position[2], position[3])
+end
+
+function Host_GamePlayer:addMoney(money)
+    self:sendToClient("AddMoney", {mMoney = money})
 end
 
 function Host_GamePlayer:_getSendKey()
@@ -1850,7 +2037,8 @@ end
 Host_GameMonster.mNameIndex = 1
 function Host_GameMonster:construction(parameter)
     self.mConfigIndex = parameter.mConfigIndex
-    self.mEntity = CreateNPC(
+    self.mEntity =
+        CreateNPC(
         {
             name = "GameMonster/" .. tostring(Host_GameMonster.mNameIndex),
             bx = parameter.mPosition[1],
@@ -1861,15 +2049,17 @@ function Host_GameMonster:construction(parameter)
             item_id = 10062,
             --is_dummy = false,
             is_persistent = false
-        })
+        }
+    )
     self.mEntityID = self.mEntity.entityId
     Host_GameMonster.mNameIndex = Host_GameMonster.mNameIndex + 1
     self.mEntity:setModelFromResource(self:getConfig().mModelResource)
     self.mProperty = new(GameMonsterProperty, {mEntityID = self.mEntityID})
-    
+
     self.mProperty:safeWrite("mLevel", parameter.mLevel)
+    self.mProperty:safeWrite("mInitHP", GameCompute.computeMonsterHP(self.mProperty:cache().mLevel))
     self.mProperty:safeWrite("mHP", GameCompute.computeMonsterHP(self.mProperty:cache().mLevel))
-    
+
     Host.addListener(self:_getSendKey(), self)
 end
 
@@ -1885,7 +2075,10 @@ function Host_GameMonster:update()
     if not self.mEntity then
         return
     end
-    if self.mAttackTimer and self.mAttackTimer:total() >= GameCompute.computeMonsterAttackTime(self.mProperty:cache().mLevel) then
+    if
+        self.mAttackTimer and
+            self.mAttackTimer:total() >= GameCompute.computeMonsterAttackTime(self.mProperty:cache().mLevel)
+     then
         delete(self.mAttackTimer)
         self.mAttackTimer = nil
     end
@@ -1919,9 +2112,9 @@ end
 function Host_GameMonster:receive(parameter)
     local is_responese, _ = string.find(parameter.mMessage, "_Response")
     if is_responese then
-        else
+    else
         if parameter.mMessage == "PropertyChange" then
-            self:_propertyChange(parameter.mParameter)
+            self:_propertyChange(parameter._from, parameter.mParameter)
         end
     end
 end
@@ -1946,11 +2139,15 @@ function Host_GameMonster:_getSendKey()
     return "GameMonster/" .. tostring(self.mEntityID)
 end
 
-function Host_GameMonster:_propertyChange(change)
+function Host_GameMonster:_propertyChange(playerID, change)
     if change.mHPSubtract then
-        self.mProperty:safeWrite("mHP", math.max((self.mProperty:cache().mHP - change.mHPSubtract), 0))
+        sub_stract = math.min(change.mHPSubtract, self.mProperty:cache().mHP)
+        self.mDamaged = self.mDamaged or {}
+        self.mDamaged[playerID] = self.mDamaged[playerID] or 0
+        self.mDamaged[playerID] = self.mDamaged[playerID] + sub_stract
+        self.mProperty:safeWrite("mHP", self.mProperty:cache().mHP - sub_stract)
     end
-    
+
     self:_checkDead()
 end
 
@@ -1959,6 +2156,17 @@ function Host_GameMonster:_checkDead()
         if self.mEntity then
             self.mEntity:SetDead(true)
             self.mEntity = nil
+        end
+        if self.mDamaged then
+            local total_money = monLootGold(self.mProperty:cache().mLevel)
+            for player_id, damage in pairs(self.mDamaged) do
+                local player = Host_Game.singleton():getPlayerManager():getPlayerByID(player_id)
+                if player then
+                    local money = total_money * damage / self.mProperty:cache().mInitHP
+                    player:addMoney(money)
+                end
+            end
+            self.mDamaged = nil
         end
     end
 end
@@ -1971,7 +2179,7 @@ function Host_GameMonster:_updateMoveTarget()
     local my_x, my_y, my_z = self.mEntity:GetBlockPos()
     for _, monster in pairs(Host_Game.singleton():getMonsterManager().mMonsters) do
         if monster ~= self and monster:getEntity() then
-            local test_x, test_y,test_z = monster:getEntity():GetBlockPos()
+            local test_x, test_y, test_z = monster:getEntity():GetBlockPos()
             if test_x == my_x and test_y == my_y and test_z == my_z then
                 local offset_x = math.random(-1, 1)
                 local offset_z = math.random(-1, 1)
@@ -1983,7 +2191,7 @@ function Host_GameMonster:_updateMoveTarget()
     end
     local select
     for _, player in pairs(Host_Game.singleton():getPlayerManager().mPlayers) do
-        if player:getProperty():cache().mHP >= 0 then
+        if player:getProperty():cache().mHP > 0 then
             local dst_x, dst_y, dst_z = GetEntityById(player:getID()):GetBlockPos()
             local dst = math.pow((dst_x - my_x), 2) + math.pow((dst_y - my_y), 2) + math.pow((dst_z - my_z), 2)
             if not select then
@@ -1997,6 +2205,11 @@ function Host_GameMonster:_updateMoveTarget()
     end
     if select then
         self.mEntity:MoveTo(select.x, select.y + 1, select.z)
+    else
+        local offset_x = math.random(-1, 1)
+        local offset_z = math.random(-1, 1)
+        self.mEntity:MoveTo(my_x + offset_x, my_y + 1, my_z + offset_z)
+        self.mHasTarget = true
     end
 end
 -----------------------------------------------------------------------------------------Client_Game-----------------------------------------------------------------------------------
@@ -2014,6 +2227,7 @@ end
 
 function Client_Game:destruction()
     delete(self.mMonsterManager)
+    delete(self.mPlayerManager)
     Client_Game.msInstance = nil
 end
 
@@ -2036,15 +2250,20 @@ end
 -----------------------------------------------------------------------------------------Client_GamePlayerManager-----------------------------------------------------------------------------------
 function Client_GamePlayerManager:construction()
     self.mPlayers = {}
-    
+
     Client.addListener("GamePlayerManager", self)
 end
 
 function Client_GamePlayerManager:destruction()
-    for _,player in pairs(self.mPlayers) do
+    self:reset()
+    Client.removeListener("GamePlayerManager", self)
+end
+
+function Client_GamePlayerManager:reset()
+    for _, player in pairs(self.mPlayers) do
         delete(player)
     end
-    Client.removeListener("GamePlayerManager", self)
+    self.mPlayers = {}
 end
 
 function Client_GamePlayerManager:update()
@@ -2056,9 +2275,13 @@ end
 function Client_GamePlayerManager:receive(parameter)
     local is_responese, _ = string.find(parameter.mMessage, "_Response")
     if is_responese then
-        else
+    else
         if parameter.mMessage == "CreatePlayer" then
-            self:_createPlayer(parameter.mParameter)
+            self:_createPlayer(parameter.mParameter.mPlayerID)
+        elseif parameter.mMessage == "DestroyPlayer" then
+            self:_destroyPlayer(parameter.mParameter.mPlayerID)
+        elseif parameter.mMessage == "Reset" then
+            self:reset()
         end
     end
 end
@@ -2075,23 +2298,44 @@ function Client_GamePlayerManager:getPlayerByID(playerID)
     end
 end
 
-function Client_GamePlayerManager:_createPlayer(parameter)
-    local ret = new(Client_GamePlayer, parameter)
+function Client_GamePlayerManager:_createPlayer(playerID)
+    local ret = new(Client_GamePlayer, {mPlayerID = playerID})
     self.mPlayers[#self.mPlayers + 1] = ret
     return ret
+end
+
+function Client_GamePlayerManager:_destroyPlayer(playerID)
+    for i, player in pairs(self.mPlayers) do
+        if player:getID() == playerID then
+            delete(player)
+            table.remove(i, self.mPlayers)
+            return
+        end
+    end
 end
 -----------------------------------------------------------------------------------------Client_GameMonsterManager-----------------------------------------------------------------------------------
 function Client_GameMonsterManager:construction()
     self.mMonsters = {}
-    
+
     Client.addListener("GameMonsterManager", self)
 end
 
 function Client_GameMonsterManager:destruction()
+    self:reset()
     Client.removeListener("GameMonsterManager", self)
 end
 
 function Client_GameMonsterManager:update(deltaTime)
+    for _, monster in pairs(self.mMonsters) do
+        monster:update()
+    end
+end
+
+function Client_GameMonsterManager:reset()
+    for _, monster in pairs(self.mMonsters) do
+        delete(monster)
+    end
+    self.mMonsters = {}
 end
 
 function Client_GameMonsterManager:sendToHost(message, parameter)
@@ -2101,9 +2345,11 @@ end
 function Client_GameMonsterManager:receive(parameter)
     local is_responese, _ = string.find(parameter.mMessage, "_Response")
     if is_responese then
-        else
+    else
         if parameter.mMessage == "CreateMonster" then
-            self:_createMonster(parameter.mParameter)
+            self:_createMonster(parameter.mParameter.mEntityID)
+        elseif parameter.mMessage == "Reset" then
+            self:reset()
         end
     end
 end
@@ -2119,8 +2365,8 @@ function Client_GameMonsterManager:onHit(weapon, result)
     end
 end
 
-function Client_GameMonsterManager:_createMonster(parameter)
-    local ret = new(Client_GameMonster, {mEntityID = parameter.mEntityID})
+function Client_GameMonsterManager:_createMonster(entityID)
+    local ret = new(Client_GameMonster, {mEntityID = entityID})
     self.mMonsters[#self.mMonsters + 1] = ret
     return ret
 end
@@ -2143,58 +2389,125 @@ function Client_GamePlayer:construction(parameter)
         saved_data.mHPLevel = saved_data.mHPLevel or 1
         saved_data.mAttackValueLevel = saved_data.mAttackValueLevel or 1
         saved_data.mAttackTimeLevel = saved_data.mAttackTimeLevel or 1
+        saved_data.mMoney = saved_data.mMoney or 0
         self.mProperty:safeWrite("mHPLevel", saved_data.mHPLevel)
         self.mProperty:safeWrite("mAttackValueLevel", saved_data.mAttackValueLevel)
         self.mProperty:safeWrite("mAttackTimeLevel", saved_data.mAttackTimeLevel)
-        WeaponSystem.get(1):setProperty("atk_speed", GameCompute.computePlayerAttackTime(self.mProperty:cache().mAttackValueLevel) * 1000)
+        -- 创建子弹
+        local bullets = CreateItemStack(50101, 999)
+        -- 创建枪
+        local gun = CreateItemStack(40300, 1)
+        -- 把枪和子弹放在人身上
+        SetItemStackToInventory(1, gun)
+        SetItemStackToInventory(2, bullets)
+
+        -- 设置枪里起始的子弹
+        WeaponSystem.get(1):setAmmoCount(30)
+        -- 显示枪里子弹数量
+        GUI.UI(
+            {
+                type = "Text",
+                align = "_ctb",
+                y = -100,
+                text = function()
+                    if WeaponSystem.get(1) then
+                        return WeaponSystem.get(1):getAmmoCount()
+                    else
+                        return ""
+                    end
+                end,
+                font_size = 50,
+                font_color = "255 255 255"
+            }
+        )
+
+        -- 设置到第三人称
+        SetCameraMode(3)
+
+        -- 显示提示
+        Tip("按R键重装子弹")
+        WeaponSystem.get(1):setProperty(
+            "atk_speed",
+            GameCompute.computePlayerAttackTime(self.mProperty:cache().mAttackValueLevel) * 1000
+        )
     end
     self.mProperty:safeRead("mConfigIndex")
-    self.mProperty:addPropertyListener("mHPLevel",self,function()end)
-    self.mProperty:addPropertyListener("mAttackValueLevel",self,function()end)
-    self.mProperty:addPropertyListener("mAttackTimeLevel",self,function()end)
+    self.mProperty:addPropertyListener(
+        "mHPLevel",
+        self,
+        function()
+        end
+    )
+    self.mProperty:addPropertyListener(
+        "mAttackValueLevel",
+        self,
+        function()
+        end
+    )
+    self.mProperty:addPropertyListener(
+        "mAttackTimeLevel",
+        self,
+        function()
+        end
+    )
     if self.mPlayerID ~= GetPlayerId() then
-        self.mBloodUI = GetEntityHeadOnObject(self.mPlayerID,"Blood/"..tostring(self.mPlayerID)):createChild({
-            ui_name = "background",
-            type = "container",
-            color = "255 0 0",
-            align = "_ct",
-            y = -100,
-            x = -100,
-            height = 20,
-            width = 200,
-            visible = true,
-        })
-        self.mProperty:addPropertyListener("mHP",self,function(_,value)
-            if value then
-                self:_updateBloodUI()
+        self.mBloodUI =
+            GetEntityHeadOnObject(self.mPlayerID, "Blood/" .. tostring(self.mPlayerID)):createChild(
+            {
+                ui_name = "background",
+                type = "container",
+                color = "255 0 0",
+                align = "_ct",
+                y = -100,
+                x = -100,
+                height = 20,
+                width = 200,
+                visible = true
+            }
+        )
+        self.mProperty:addPropertyListener(
+            "mHP",
+            self,
+            function(_, value)
+                if value then
+                    self:_updateBloodUI()
+                end
             end
-        end)
+        )
     end
-      
+
     Client.addListener(self:_getSendKey(), self)
 end
 
 function Client_GamePlayer:destruction()
-    self.mProperty:removePropertyListener("mHPLevel",self)
-    self.mProperty:removePropertyListener("mAttackValueLevel",self)
-    self.mProperty:removePropertyListener("mAttackTimeLevel",self)
-    self.mProperty:removePropertyListener("mHP",self)
-    self.mBloodUI:destroy()
+    self.mProperty:removePropertyListener("mHPLevel", self)
+    self.mProperty:removePropertyListener("mAttackValueLevel", self)
+    self.mProperty:removePropertyListener("mAttackTimeLevel", self)
+    self.mProperty:removePropertyListener("mHP", self)
+    if self.mBloodUI then
+        self.mBloodUI:destroy()
+    end
     Client.removeListener(self:_getSendKey(), self)
 end
 
 function Client_GamePlayer:update()
     if self.mPlayerID == GetPlayerId() then
         local saved_data = getSavedData()
-        if saved_data.mHPLevel ~= self.mProperty:cache().mHPLevel then
-            self.mProperty:safeWrite("mHPLevel", saved_data.mHPLevel)
-            self:_updateBloodUI()
+        if self.mProperty:cache().mHPLevel then
+            if saved_data.mHPLevel ~= self.mProperty:cache().mHPLevel then
+                self.mProperty:safeWrite("mHPLevel", saved_data.mHPLevel)
+                self:_updateBloodUI()
+            end
         end
-        if saved_data.mAttackValueLevel ~= self.mProperty:cache().mAttackValueLevel then
-            self.mProperty:safeWrite("mAttackValueLevel", saved_data.mAttackValueLevel)
+        if self.mProperty:cache().mAttackValueLevel then
+            if saved_data.mAttackValueLevel ~= self.mProperty:cache().mAttackValueLevel then
+                self.mProperty:safeWrite("mAttackValueLevel", saved_data.mAttackValueLevel)
+            end
         end
-        if saved_data.mAttackTimeLevel ~= self.mProperty:cache().mAttackTimeLevel then
-            self.mProperty:safeWrite("mAttackTimeLevel", saved_data.mAttackTimeLevel)
+        if self.mProperty:cache().mAttackTimeLevel then
+            if saved_data.mAttackTimeLevel ~= self.mProperty:cache().mAttackTimeLevel then
+                self.mProperty:safeWrite("mAttackTimeLevel", saved_data.mAttackTimeLevel)
+            end
         end
     end
 end
@@ -2202,11 +2515,30 @@ end
 function Client_GamePlayer:receive(parameter)
     local is_responese, _ = string.find(parameter.mMessage, "_Response")
     if is_responese then
-        else
+    else
         if parameter.mMessage == "Dead" then
             Die()
+            SetItemStackToInventory(1, {})
+            SetItemStackToInventory(2, {})
         elseif parameter.mMessage == "Revive" then
             Revive()
+            -- 创建子弹
+            local bullets = CreateItemStack(50101, 999)
+            -- 创建枪
+            local gun = CreateItemStack(40300, 1)
+            -- 把枪和子弹放在人身上
+            SetItemStackToInventory(1, gun)
+            SetItemStackToInventory(2, bullets)
+
+            -- 设置枪里起始的子弹
+            WeaponSystem.get(1):setAmmoCount(30)
+            WeaponSystem.get(1):setProperty(
+                "atk_speed",
+                GameCompute.computePlayerAttackTime(self.mProperty:cache().mAttackValueLevel) * 1000
+            )
+        elseif parameter.mMessage == "AddMoney" then
+            local saved_data = getSavedData()
+            saved_data.mMoney = saved_data.mMoney + parameter.mParameter.mMoney
         end
     end
 end
@@ -2232,28 +2564,45 @@ function Client_GamePlayer:_getSendKey()
 end
 
 function Client_GamePlayer:_updateBloodUI()
-    self.mBloodUI.width = 200 * self.mProperty:cache().mHP/GameCompute.computePlayerHP(self.mProperty:cache().mHPLevel)
+    if self.mProperty:cache().mHP and self.mProperty:cache().mHPLevel then
+        self.mBloodUI.width =
+            200 * self.mProperty:cache().mHP / GameCompute.computePlayerHP(self.mProperty:cache().mHPLevel)
+    end
 end
 -----------------------------------------------------------------------------------------Client_GameMonster-----------------------------------------------------------------------------------
 function Client_GameMonster:construction(parameter)
+    self.mCommandQueue = new(CommandQueue)
     self.mEntityID = parameter.mEntityID
     self.mProperty = new(GameMonsterProperty, {mEntityID = self.mEntityID})
-    
-    self.mProperty:addPropertyListener("mLevel",self,function()end)
-    self.mProperty:addPropertyListener("mHP", self, function(_, value)
-        self:_updateBloodUI()
-    end)
+
+    self.mProperty:addPropertyListener(
+        "mLevel",
+        self,
+        function()
+        end
+    )
+    self.mProperty:addPropertyListener(
+        "mHP",
+        self,
+        function(_, value)
+            self:_updateBloodUI()
+        end
+    )
     Client.addListener(self:_getSendKey(), self)
 end
 
 function Client_GameMonster:destruction()
-    self.mProperty:removePropertyListener("mLevel",self)
-    self.mProperty:removePropertyListener("mHP",self)
+    self.mProperty:removePropertyListener("mLevel", self)
+    self.mProperty:removePropertyListener("mHP", self)
     if self.mBloodUI then
         self.mBloodUI:destroy()
     end
     delete(self.mProperty)
     Client.removeListener(self:_getSendKey(), self)
+end
+
+function Client_GameMonster:update()
+    self.mCommandQueue:update()
 end
 
 function Client_GameMonster:sendToHost(message, parameter)
@@ -2269,7 +2618,10 @@ end
 
 function Client_GameMonster:onHit(weapon)
     local property_change = {}
-    property_change.mHPSubtract = GameCompute.computePlayerAttackValue(Client_Game.singleton():getPlayerManager():getPlayerByID(GetPlayerId()):getProperty():cache().mAttackValueLevel)
+    property_change.mHPSubtract =
+        GameCompute.computePlayerAttackValue(
+        Client_Game.singleton():getPlayerManager():getPlayerByID(GetPlayerId()):getProperty():cache().mAttackValueLevel
+    )
     self:sendToHost("PropertyChange", property_change)
 end
 
@@ -2278,22 +2630,42 @@ function Client_GameMonster:_getSendKey()
 end
 
 function Client_GameMonster:_updateBloodUI()
-    --[[if not self.mBloodUI and GetEntityById(self.mEntityID) then
-        self.mBloodUI = GetEntityHeadOnObject(self.mEntityID,"Blood/"..tostring(self.mEntityID)):createChild({
-            ui_name = "background",
-            type = "container",
-            color = "255 0 0",
-            align = "_ct",
-            y = -100,
-            x = -100,
-            height = 20,
-            width = 200,
-            visible = true,
-        })
+    if
+        not self.mBloodUI and GetEntityById(self.mEntityID) and
+            GetEntityHeadOnObject(self.mEntityID, "Blood/" .. tostring(self.mEntityID))
+     then
+        self.mBloodUI =
+            GetEntityHeadOnObject(self.mEntityID, "Blood/" .. tostring(self.mEntityID)):createChild(
+            {
+                ui_name = "background",
+                type = "container",
+                color = "255 0 0",
+                align = "_ct",
+                y = -100,
+                x = -100,
+                height = 20,
+                width = 200,
+                visible = true
+            }
+        )
     end
     if self.mBloodUI then
-        self.mBloodUI.width = 200 * self.mProperty:cache().mHP/GameCompute.computePlayerHP(self.mProperty:cache().mLevel)
-    end]]
+        self.mBloodUI.width =
+            200 * self.mProperty:cache().mHP / GameCompute.computePlayerHP(self.mProperty:cache().mLevel)
+    else
+        self.mCommandQueue:post(
+            new(
+                Command_Callback,
+                {
+                    mDebug = "Client_GameMonster:_updateBloodUI",
+                    mExecuteCallback = function(command)
+                        self:_updateBloodUI()
+                        command.mState = Command.EState.Finish
+                    end
+                }
+            )
+        )
+    end
 end
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2313,42 +2685,14 @@ function main()
     GlobalProperty.initialize()
     PlayerManager.initialize()
     SendTo("host", {mMessage = "CheckHost"})
-    -- 创建子弹
-    local bullets = CreateItemStack(50101, 999);
-    -- 创建枪
-    local gun = CreateItemStack(40300, 1);
-    -- 把枪和子弹放在人身上
-    SetItemStackToInventory(1, gun);
-    SetItemStackToInventory(2, bullets);
-    
-    -- 设置枪里起始的子弹
-    WeaponSystem.get(1):setAmmoCount(30);
-    -- 显示枪里子弹数量
-    GUI.UI({
-        type = "Text",
-        align = "_ctb",
-        y = -100,
-        text = function()
-            return WeaponSystem.get(1):getAmmoCount()
-        end,
-        font_size = 50,
-        font_color = "255 255 255"
-    })
-    
-    -- 设置到第三人称
-    SetCameraMode(3)
-    
-    -- 显示提示
-    Tip("按R键重装子弹")
-
-
 end
 
 function clear()
+    Revive()
     SetCameraMode(2)
     SetItemStackToInventory(1, {})
     SetItemStackToInventory(2, {})
-    
+
     PlayerManager.clear()
     if Host_Game.singleton() then
         delete(Host_Game.singleton())
@@ -2361,18 +2705,20 @@ end
 -- 获取输入
 function handleInput(event)
     InputManager.notify(event)
-    return WeaponSystem.input(event);
+    return WeaponSystem.input(event)
 end
 
-WeaponSystem.onHit(function(weapon, result)
-    Client_Game.singleton():onHit(weapon, result)
-    -- 创建子弹击中方块效果
-    if result.block_id then
-        CreateBlockPieces(result.block_id, result.blockX, result.blockY, result.blockZ)
-    elseif result.entity then
-        CreateBlockPieces(2051, result.blockX, result.blockY, result.blockZ)
+WeaponSystem.onHit(
+    function(weapon, result)
+        Client_Game.singleton():onHit(weapon, result)
+        -- 创建子弹击中方块效果
+        if result.block_id then
+            CreateBlockPieces(result.block_id, result.blockX, result.blockY, result.blockZ)
+        elseif result.entity then
+            CreateBlockPieces(2051, result.blockX, result.blockY, result.blockZ)
+        end
     end
-end)
+)
 
 function receiveMsg(parameter)
     Client_Game.singleton()
