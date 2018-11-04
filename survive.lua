@@ -105,7 +105,7 @@ local function restoreBlock(x, y, z)
         SetBlock(x, y, z, gOriginBlockIDs[key])
     end
 end
-local SavedData = {}
+local SavedData = {mMoney = 10000000000}
 local function getSavedData()
     return GetSavedData() or SavedData
 end
@@ -1308,6 +1308,7 @@ GameConfig.mHomePointBlockID = 2102
 GameConfig.mMonsterLibrary = {
     {
         mModelResource = {hash = "Fta_KeWpZ2Uut43HCCwZuhIENsUk", pid = "6723", ext = "FBX"},
+        mModelScaling = 2,
         mHP = 49,
         mDefence = {{mType = "穿刺", mValue = 0}},
         mAttack = {mType = "物理", mValue = 10},
@@ -1318,6 +1319,7 @@ GameConfig.mMonsterLibrary = {
     },
     {
         mModelResource = {hash = "FkpOQ8tZE4uAPnRoz5dr6SJenXHr", pid = "6722", ext = "FBX"},
+        mModelScaling = 2,
         mHP = 49,
         mDefence = {{mType = "穿刺", mValue = 0}},
         mAttack = {mType = "物理", mValue = 10},
@@ -1328,6 +1330,7 @@ GameConfig.mMonsterLibrary = {
     },
     {
         mModelResource = {hash = "FklKvN9casvBiqCrvzMjFISaTt_1", pid = "6721", ext = "FBX"},
+        mModelScaling = 2,
         mHP = 49,
         mDefence = {{mType = "穿刺", mValue = 0}},
         mAttack = {mType = "物理", mValue = 10},
@@ -1353,7 +1356,7 @@ GameConfig.mPlayers = {
     mAttackTime = 1,
     mStopTime = 0
 }
-GameConfig.mPrepareTime = 5
+GameConfig.mPrepareTime = 15
 -----------------------------------------------------------------------------------------GameCompute-----------------------------------------------------------------------------------
 function GameCompute.computePlayerHP(level)
     return 7 / GameCompute.computeMonsterAttackTime() * GameCompute.computeMonsterAttackValue(level)
@@ -1394,18 +1397,27 @@ function GameCompute.computeMonsterGenerateCountScale(players)
     return #players
 end
 
-function monLootGold(lv)
-    local function getNextLvTime(lv)
-        if lv < 11 then
-            return 0.02 * lv ^ 2 + 0.3 * lv + 1.08
-        elseif lv >= 11 and lv < 31 then
-            return 0.02 * lv ^ 2 + 0.3 * lv + 1.08
-        elseif lv >= 31 and lv > 61 then
-            return 0.06 * lv ^ 2 + 0.1 * lv - 27.5
-        elseif lv >= 61 then
-            return 0.25 * lv ^ 2 + 0.3 * lv - 710
-        end
+local function getNextLvTime(lv)
+    if lv < 11 then
+        return 0.02 * lv ^ 2 + 0.3 * lv + 1.08
+    elseif lv >= 11 and lv < 31 then
+        return 0.02 * lv ^ 2 + 0.3 * lv + 1.08
+    elseif lv >= 31 and lv < 61 then
+        return 0.06 * lv ^ 2 + 0.1 * lv - 27.5
+    elseif lv >= 61 then
+        return 0.25 * lv ^ 2 + 0.3 * lv - 710
     end
+end
+
+local function getNextLvGold(lv)
+    local nextLvTime = getNextLvTime(lv)
+    local killEfficiency = 5 / 60
+    local goldEfficiency = lv * 20 + 40
+    local nextLvGold = goldEfficiency * nextLvTime
+    return nextLvGold
+end
+
+function monLootGold(lv)
     local nextLvTime = getNextLvTime(lv)
     local killEfficiency = 5 / 60
     local goldEfficiency = lv * 20 + 40
@@ -1413,6 +1425,449 @@ function monLootGold(lv)
     local nextLvMonNum = nextLvTime / killEfficiency
     local monLootGold = nextLvGold / nextLvMonNum
     return monLootGold
+end
+------------------------------------------------------------------------------------------UI----------------------------------------------------------------------------
+local GUI = require("GUI")
+-- local Player = GetPlayer()
+-- isServer = (Player.name == "__MP__admin")
+-- if isServer then
+--     local server = require("server")
+-- end
+-- local saveData = GetSavedData()
+local saveData = getSavedData()
+local gameUi = {
+    {
+        ui_name = "upgrade_background",
+        type = "Picture",
+        background_color = "0 148 236 255",
+        align = "_ct",
+        y = 0,
+        x = 0,
+        height = 500,
+        width = 800,
+        visible = true
+    },
+    {
+        ui_name = "upgrade_title",
+        type = "Text",
+        align = "_ct",
+        text = function()
+            local text = "能力提升"
+
+            return text
+        end,
+        -- font_type = "Source Han Sans SC Bold",
+        font_size = 50,
+        x = function()
+            return getUiValue("upgrade_background", "x") - 0
+        end,
+        y = function()
+            return getUiValue("upgrade_background", "y") - 220
+        end,
+        font_bold = true,
+        height = 70,
+        width = 300,
+        text_format = 1,
+        --text_border = true,
+        shadow = true,
+        font_color = "255 255 255",
+        visible = true
+    },
+    {
+        ui_name = "close_button",
+        type = "Button",
+        align = "_ct",
+        background_color = "220 20 60 255",
+        text = function()
+            local text = "X"
+
+            return text
+        end,
+        -- font_type = "Source Han Sans SC Bold",
+        font_size = 30,
+        x = function()
+            return getUiValue("upgrade_background", "x") + 350
+        end,
+        y = function()
+            return getUiValue("upgrade_background", "y") - 210
+        end,
+        onclick = function()
+            closeSafeHouseUI()
+        end,
+        font_bold = true,
+        height = 60,
+        width = 60,
+        text_format = 5,
+        --text_border = true,
+        shadow = true,
+        font_color = "220 20 60",
+        visible = true
+    },
+    {
+        ui_name = "upgrade_fightingLevel",
+        type = "Text",
+        align = "_ct",
+        text = function()
+            local text = "战斗力等级:" .. tostring(saveData.mHPLevel + saveData.mAttackValueLevel + saveData.mAttackTimeLevel)
+
+            return text
+        end,
+        -- font_type = "Source Han Sans SC Bold",
+        font_size = 35,
+        x = function()
+            return getUiValue("upgrade_background", "x") - 0
+        end,
+        y = function()
+            return getUiValue("upgrade_background", "y") - 150
+        end,
+        font_bold = true,
+        height = 70,
+        width = 300,
+        text_format = 1,
+        --text_border = true,
+        shadow = true,
+        font_color = "255 255 255",
+        visible = true
+    },
+    {
+        ui_name = "upgrade_HP",
+        type = "Text",
+        align = "_ct",
+        text = function()
+            local text = "生命等级:" .. tostring(saveData.mHPLevel)
+
+            return text
+        end,
+        -- font_type = "Source Han Sans SC Bold",
+        font_size = 35,
+        x = function()
+            return getUiValue("upgrade_fightingLevel", "x") - 200
+        end,
+        y = function()
+            return getUiValue("upgrade_fightingLevel", "y") + 100
+        end,
+        font_bold = true,
+        height = 70,
+        width = 300,
+        text_format = 1,
+        --text_border = true,
+        shadow = true,
+        font_color = "255 255 255",
+        visible = true
+    },
+    {
+        ui_name = "upgrade_HP_button",
+        type = "Button",
+        align = "_ct",
+        background_color = "0 0 0 255",
+        text = function()
+            local text = "升级"
+
+            return text
+        end,
+        -- font_type = "Source Han Sans SC Bold",
+        font_size = 30,
+        x = function()
+            return getUiValue("upgrade_HP", "x") + 200
+        end,
+        y = function()
+            return getUiValue("upgrade_HP", "y") - 10
+        end,
+        onclick = function()
+            local money = getNextLvGold(getSavedData().mHPLevel)
+            if getSavedData().mMoney >= money then
+                getSavedData().mMoney = getSavedData().mMoney - money
+                getSavedData().mHPLevel = getSavedData().mHPLevel + 1
+            end
+        end,
+        font_bold = true,
+        height = 50,
+        width = 100,
+        text_format = 1,
+        --text_border = true,
+        shadow = true,
+        font_color = "255 255 255",
+        visible = true
+    },
+    {
+        ui_name = "upgrade_HP_gold",
+        type = "Text",
+        align = "_ct",
+        text = function()
+            local text = "需要金钱：" .. tostring(getNextLvGold(getSavedData().mHPLevel))
+
+            return text
+        end,
+        -- font_type = "Source Han Sans SC Bold",
+        font_size = 20,
+        x = function()
+            return getUiValue("upgrade_HP_button", "x") + 150
+        end,
+        y = function()
+            return getUiValue("upgrade_HP_button", "y") + 10
+        end,
+        font_bold = true,
+        height = 50,
+        width = 200,
+        text_format = 1,
+        --text_border = true,
+        shadow = true,
+        font_color = "255 255 255",
+        visible = true
+    },
+    {
+        ui_name = "upgrade_attack",
+        type = "Text",
+        align = "_ct",
+        text = function()
+            local text = "攻击等级:" .. tostring(saveData.mAttackValueLevel)
+
+            return text
+        end,
+        -- font_type = "Source Han Sans SC Bold",
+        font_size = 35,
+        x = function()
+            return getUiValue("upgrade_HP", "x") - 0
+        end,
+        y = function()
+            return getUiValue("upgrade_HP", "y") + 100
+        end,
+        font_bold = true,
+        height = 70,
+        width = 300,
+        text_format = 1,
+        --text_border = true,
+        shadow = true,
+        font_color = "255 255 255",
+        visible = true
+    },
+    {
+        ui_name = "upgrade_attack_button",
+        type = "Button",
+        align = "_ct",
+        background_color = "0 0 0 255",
+        text = function()
+            local text = "升级"
+
+            return text
+        end,
+        -- font_type = "Source Han Sans SC Bold",
+        font_size = 30,
+        x = function()
+            return getUiValue("upgrade_attack", "x") + 200
+        end,
+        y = function()
+            return getUiValue("upgrade_attack", "y") - 10
+        end,
+        onclick = function()
+            local money = getNextLvGold(getSavedData().mAttackValueLevel)
+            if getSavedData().mMoney >= money then
+                getSavedData().mMoney = getSavedData().mMoney - money
+                getSavedData().mAttackValueLevel = getSavedData().mAttackValueLevel + 1
+            end
+        end,
+        font_bold = true,
+        height = 50,
+        width = 100,
+        text_format = 1,
+        --text_border = true,
+        shadow = true,
+        font_color = "255 255 255",
+        visible = true
+    },
+    {
+        ui_name = "upgrade_attack_gold",
+        type = "Text",
+        align = "_ct",
+        text = function()
+            local text = "需要金钱：" .. tostring(getNextLvGold(getSavedData().mAttackValueLevel))
+
+            return text
+        end,
+        -- font_type = "Source Han Sans SC Bold",
+        font_size = 20,
+        x = function()
+            return getUiValue("upgrade_attack_button", "x") + 150
+        end,
+        y = function()
+            return getUiValue("upgrade_attack_button", "y") + 10
+        end,
+        font_bold = true,
+        height = 50,
+        width = 200,
+        text_format = 1,
+        --text_border = true,
+        shadow = true,
+        font_color = "255 255 255",
+        visible = true
+    },
+    {
+        ui_name = "upgrade_attSpeed",
+        type = "Text",
+        align = "_ct",
+        text = function()
+            local text = "攻速等级:" .. tostring(saveData.mAttackTimeLevel)
+
+            return text
+        end,
+        -- font_type = "Source Han Sans SC Bold",
+        font_size = 35,
+        x = function()
+            return getUiValue("upgrade_attack", "x") - 0
+        end,
+        y = function()
+            return getUiValue("upgrade_attack", "y") + 100
+        end,
+        font_bold = true,
+        height = 70,
+        width = 300,
+        text_format = 1,
+        --text_border = true,
+        shadow = true,
+        font_color = "255 255 255",
+        visible = true
+    },
+    {
+        ui_name = "upgrade_attSpeed_button",
+        type = "Button",
+        align = "_ct",
+        background_color = "0 0 0 255",
+        text = function()
+            local text = "升级"
+
+            return text
+        end,
+        -- font_type = "Source Han Sans SC Bold",
+        font_size = 30,
+        x = function()
+            return getUiValue("upgrade_attSpeed", "x") + 200
+        end,
+        y = function()
+            return getUiValue("upgrade_attSpeed", "y") - 10
+        end,
+        onclick = function()
+            local money = getNextLvGold(getSavedData().mAttackTimeLevel)
+            if getSavedData().mMoney >= money then
+                getSavedData().mMoney = getSavedData().mMoney - money
+                getSavedData().mAttackTimeLevel = getSavedData().mAttackTimeLevel + 1
+            end
+        end,
+        font_bold = true,
+        height = 50,
+        width = 100,
+        text_format = 1,
+        --text_border = true,
+        shadow = true,
+        font_color = "255 255 255",
+        visible = true
+    },
+    {
+        ui_name = "upgrade_attSpeed_gold",
+        type = "Text",
+        align = "_ct",
+        text = function()
+            local text = "需要金钱：" .. tostring(getNextLvGold(getSavedData().mAttackTimeLevel))
+
+            return text
+        end,
+        -- font_type = "Source Han Sans SC Bold",
+        font_size = 20,
+        x = function()
+            return getUiValue("upgrade_attSpeed_button", "x") + 150
+        end,
+        y = function()
+            return getUiValue("upgrade_attSpeed_button", "y") + 10
+        end,
+        font_bold = true,
+        height = 50,
+        width = 200,
+        text_format = 1,
+        --text_border = true,
+        shadow = true,
+        font_color = "255 255 255",
+        visible = true
+    },
+    {
+        ui_name = "current_gold",
+        type = "Text",
+        align = "_ct",
+        text = function()
+            local text = "金钱：" .. tostring(saveData.mMoney)
+
+            return text
+        end,
+        -- font_type = "Source Han Sans SC Bold",
+        font_size = 40,
+        x = function()
+            return getUiValue("upgrade_background", "x") - 250
+        end,
+        y = function()
+            return getUiValue("upgrade_background", "y") + 220
+        end,
+        font_bold = true,
+        height = 70,
+        width = 300,
+        text_format = 1,
+        --text_border = true,
+        shadow = true,
+        font_color = "255 215 0",
+        visible = true
+    }
+}
+function initUi()
+    for i = 1, #gameUi do
+        GUI.UI(gameUi[i])
+    end
+end
+
+function openSafeHouseUI()
+    for i = 1, #gameUi do
+        gameUi[i].visible = true
+    end
+end
+
+function closeSafeHouseUI()
+    for i = 1, #gameUi do
+        gameUi[i].visible = false
+    end
+end
+
+function getUi(name)
+    for i = 1, #gameUi do
+        if gameUi[i].ui_name == name then
+            return gameUi[i]
+        end
+    end
+    return {}
+end
+
+function getUiValue(ui_name, key)
+    local ui = getUi(ui_name)
+    if type(ui[key]) == "function" then
+        return ui[key]()
+    end
+    return ui[key]
+end
+
+function setUiValue(ui_name, key, value)
+    local ui = getUi(ui_name)
+    if ui then
+        ui[key] = value
+    end
+end
+
+function showUi(name)
+    local ui = getUi(name)
+    if ui then
+        ui.visible = true
+    end
+end
+
+function hideUi(name)
+    local ui = getUi(name)
+    if ui then
+        ui.visible = false
+    end
 end
 -----------------------------------------------------------------------------------------GamePlayerProperty-----------------------------------------------------------------------------------
 function GamePlayerProperty:construction(parameter)
@@ -1489,6 +1944,12 @@ function Host_Game:update(deltaTime)
     if self.mMonsterManager then
         self.mMonsterManager:update(deltaTime)
     end
+    if self.mSafeHouse then
+        self.mSafeHouse.mTerrain:update()
+    end
+    if self.mScene then
+        self.mScene.mTerrain:update()
+    end
 end
 
 function Host_Game:getPlayerManager()
@@ -1499,28 +1960,36 @@ function Host_Game:getMonsterManager()
     return self.mMonsterManager
 end
 
-function Host_Game:setScene(scene)
+function Host_Game:setScene(scene, callback)
     if self.mScene then
         delete(self.mScene.mTerrain)
     end
     self.mScene = scene
     if self.mScene then
+        self.mPlayerManager:leaveSafeHouse()
         self.mScene.mTerrain:applyTemplate(
             function()
                 self.mPlayerManager:setScene(self.mScene)
                 self.mMonsterManager:setScene(self.mScene)
+                callback()
             end
         )
     else
         self.mPlayerManager:setScene(self.mSafeHouse)
+        self.mPlayerManager:enterSafeHouse()
+        callback()
     end
 end
 
 function Host_Game:start()
     self.mLevel = 1
     self.mPlayerManager:initializePlayerProperties()
-    self:setScene()
-    self:_nextMatch()
+    self:setScene(
+        nil,
+        function()
+            self:_nextMatch()
+        end
+    )
 end
 
 function Host_Game:_nextMatch()
@@ -1545,68 +2014,74 @@ function Host_Game:_nextMatch()
             {
                 mDebug = "Host_Game:_nextMatch/Start",
                 mExecuteCallback = function(command)
-                    self:_startMatch()
                     command.mState = Command.EState.Finish
-                end
-            }
-        )
-    )
-    self.mCommandQueue:post(
-        new(
-            Command_Callback,
-            {
-                mDebug = "Host_Game:_nextMatch/Check",
-                mTimeOutProcess = function()
-                end,
-                mExecutingCallback = function(command)
-                    if self.mPlayerManager:isAllDead() then
-                        self.mCommandQueue:post(
-                            new(
-                                Command_Callback,
-                                {
-                                    mDebug = "Host_Game:_nextMatch/Restart",
-                                    mTimeOutProcess = function()
-                                    end,
-                                    mExecutingCallback = function(command)
-                                        command.mTimer = command.mTimer or new(Timer)
-                                        if command.mTimer:total() >= 5 then
-                                            command.mState = Command.EState.Finish
-                                            self:start()
+                    self:_startMatch(
+                        function()
+                            self.mCommandQueue:post(
+                                new(
+                                    Command_Callback,
+                                    {
+                                        mDebug = "Host_Game:_nextMatch/Check",
+                                        mTimeOutProcess = function()
+                                        end,
+                                        mExecutingCallback = function(command)
+                                            if self.mPlayerManager:isAllDead() then
+                                                self.mCommandQueue:post(
+                                                    new(
+                                                        Command_Callback,
+                                                        {
+                                                            mDebug = "Host_Game:_nextMatch/Restart",
+                                                            mTimeOutProcess = function()
+                                                            end,
+                                                            mExecutingCallback = function(command)
+                                                                command.mTimer = command.mTimer or new(Timer)
+                                                                if command.mTimer:total() >= 5 then
+                                                                    command.mState = Command.EState.Finish
+                                                                    self:start()
+                                                                end
+                                                            end
+                                                        }
+                                                    )
+                                                )
+                                                command.mState = Command.EState.Finish
+                                            elseif self.mMonsterManager:isAllDead() then
+                                                self.mCommandQueue:post(
+                                                    new(
+                                                        Command_Callback,
+                                                        {
+                                                            mDebug = "Host_Game:_nextMatch/NextMatch",
+                                                            mTimeOutProcess = function()
+                                                            end,
+                                                            mExecutingCallback = function(command)
+                                                                command.mTimer = command.mTimer or new(Timer)
+                                                                if command.mTimer:total() >= 5 then
+                                                                    command.mState = Command.EState.Finish
+                                                                    self:setScene(nil,
+                                                                        function()
+                                                                            self.mLevel = self.mLevel + 1
+                                                                            self:_nextMatch()
+                                                                        end
+                                                                    )
+                                                                end
+                                                            end
+                                                        }
+                                                    )
+                                                )
+                                                command.mState = Command.EState.Finish
+                                            end
                                         end
-                                    end
-                                }
+                                    }
+                                )
                             )
-                        )
-                        command.mState = Command.EState.Finish
-                    elseif self.mMonsterManager:isAllDead() then
-                        self.mCommandQueue:post(
-                            new(
-                                Command_Callback,
-                                {
-                                    mDebug = "Host_Game:_nextMatch/NextMatch",
-                                    mTimeOutProcess = function()
-                                    end,
-                                    mExecutingCallback = function(command)
-                                        command.mTimer = command.mTimer or new(Timer)
-                                        if command.mTimer:total() >= 5 then
-                                            command.mState = Command.EState.Finish
-                                            self:setScene()
-                                            self.mLevel = self.mLevel + 1
-                                            self:_nextMatch()
-                                        end
-                                    end
-                                }
-                            )
-                        )
-                        command.mState = Command.EState.Finish
-                    end
+                        end
+                    )
                 end
             }
         )
     )
 end
 
-function Host_Game:_startMatch()
+function Host_Game:_startMatch(callback)
     local scene = {mLevel = self.mLevel}
     local terrains = {}
     for _, terrain in pairs(GameConfig.mTerrainLibrary) do
@@ -1617,9 +2092,9 @@ function Host_Game:_startMatch()
     if #terrains > 0 then
         local terrain_config = terrains[math.random(1, #terrains)]
         scene.mTerrain = new(Host_GameTerrain, {mTemplateResource = terrain_config.mTemplateResource})
-        self:setScene(scene)
+        self:setScene(scene, callback)
     else
-        self:setScene()
+        self:setScene(nil,callback)
     end
 end
 -----------------------------------------------------------------------------------------Host_GamePlayerManager-----------------------------------------------------------------------------------
@@ -1683,6 +2158,14 @@ function Host_GamePlayerManager:initializePlayerProperties(propertyName)
     self:eachPlayer("initializeProperty", propertyName)
 end
 
+function Host_GamePlayerManager:enterSafeHouse()
+    self:eachPlayer("enterSafeHouse")
+end
+
+function Host_GamePlayerManager:leaveSafeHouse()
+    self:eachPlayer("leaveSafeHouse")
+end
+
 function Host_GamePlayerManager:setScene(scene)
     self.mScene = scene
     if self.mScene then
@@ -1693,7 +2176,10 @@ end
 function Host_GamePlayerManager:_createPlayer(entityWatcher)
     local ret = new(Host_GamePlayer, {mEntityWatcher = entityWatcher, mConfigIndex = 1})
     self.mPlayers[#self.mPlayers + 1] = ret
-    if Host_Game.singleton().mSafeHouse then
+    if Host_Game.singleton().mScene then
+        local pos = Host_Game.singleton().mScene.mTerrain:getHomePoint()
+        SetEntityBlockPos(ret:getID(), pos[1], pos[2], pos[3])
+    elseif Host_Game.singleton().mSafeHouse then
         local pos = Host_Game.singleton().mSafeHouse.mTerrain:getHomePoint()
         SetEntityBlockPos(ret:getID(), pos[1], pos[2], pos[3])
     end
@@ -1833,10 +2319,16 @@ function Host_GameTerrain:construction(parameter)
     self.mTemplate = parameter.mTemplate
     self.mTemplateResource = parameter.mTemplateResource
     self.mMonsterPoints = {}
+    self.mCommandQueue = new(CommandQueue)
 end
 
 function Host_GameTerrain:destruction()
+    delete(self.mCommandQueue)
     self:restoreTemplate()
+end
+
+function Host_GameTerrain:update()
+    self.mCommandQueue:update()
 end
 
 function Host_GameTerrain:applyTemplate(callback)
@@ -1860,7 +2352,14 @@ function Host_GameTerrain:applyTemplate(callback)
             end
         end
         if callback then
-            callback()
+            self.mCommandQueue:post(new(Command_Callback,{mDebug = "Host_GameTerrain:applyTemplate",mExecutingCallback = function(command)
+                command.mTimer = command.mTimer or new(Timer)
+                if command.mTimer:total()>1 then
+                    delete(command.mTimer)
+                    command.mState = Command.EState.Finish
+                    callback()
+                end
+            end}))
         end
     elseif self.mTemplateResource then
         GetResourceModel(
@@ -2016,6 +2515,14 @@ function Host_GamePlayer:setPosition(position)
     SetEntityBlockPos(self.mPlayerID, position[1], position[2], position[3])
 end
 
+function Host_GamePlayer:enterSafeHouse()
+    self:sendToClient("EnterSafeHouse")
+end
+
+function Host_GamePlayer:leaveSafeHouse()
+    self:sendToClient("LeaveSafeHouse")
+end
+
 function Host_GamePlayer:addMoney(money)
     self:sendToClient("AddMoney", {mMoney = money})
 end
@@ -2048,7 +2555,8 @@ function Host_GameMonster:construction(parameter)
             can_random_move = false,
             item_id = 10062,
             --is_dummy = false,
-            is_persistent = false
+            is_persistent = false,
+            scaling = self:getConfig().mModelScaling
         }
     )
     self.mEntityID = self.mEntity.entityId
@@ -2089,7 +2597,7 @@ function Host_GameMonster:update()
     if not self.mAttackTimer then
         local attacked
         for _, player in pairs(Host_Game.singleton():getPlayerManager().mPlayers) do
-            if player:getProperty():cache().mHP > 0 then
+            if player:getProperty():cache().mHP and player:getProperty():cache().mHP > 0 then
                 local dst_x, dst_y, dst_z = GetEntityById(player:getID()):GetBlockPos()
                 local x, y, z = self.mEntity:GetBlockPos()
                 local dst = math.pow((dst_x - x), 2) + math.pow((dst_y - y), 2) + math.pow((dst_z - z), 2)
@@ -2191,7 +2699,7 @@ function Host_GameMonster:_updateMoveTarget()
     end
     local select
     for _, player in pairs(Host_Game.singleton():getPlayerManager().mPlayers) do
-        if player:getProperty():cache().mHP > 0 then
+        if player:getProperty():cache().mHP and player:getProperty():cache().mHP > 0 then
             local dst_x, dst_y, dst_z = GetEntityById(player:getID()):GetBlockPos()
             local dst = math.pow((dst_x - my_x), 2) + math.pow((dst_y - my_y), 2) + math.pow((dst_z - my_z), 2)
             if not select then
@@ -2308,7 +2816,7 @@ function Client_GamePlayerManager:_destroyPlayer(playerID)
     for i, player in pairs(self.mPlayers) do
         if player:getID() == playerID then
             delete(player)
-            table.remove(i, self.mPlayers)
+            table.remove(self.mPlayers, i)
             return
         end
     end
@@ -2421,15 +2929,13 @@ function Client_GamePlayer:construction(parameter)
             }
         )
 
-        -- 设置到第三人称
-        SetCameraMode(3)
-
         -- 显示提示
         Tip("按R键重装子弹")
         WeaponSystem.get(1):setProperty(
             "atk_speed",
             GameCompute.computePlayerAttackTime(self.mProperty:cache().mAttackValueLevel) * 1000
         )
+        initUi()
     end
     self.mProperty:safeRead("mConfigIndex")
     self.mProperty:addPropertyListener(
@@ -2451,20 +2957,6 @@ function Client_GamePlayer:construction(parameter)
         end
     )
     if self.mPlayerID ~= GetPlayerId() then
-        self.mBloodUI =
-            GetEntityHeadOnObject(self.mPlayerID, "Blood/" .. tostring(self.mPlayerID)):createChild(
-            {
-                ui_name = "background",
-                type = "container",
-                color = "255 0 0",
-                align = "_ct",
-                y = -100,
-                x = -100,
-                height = 20,
-                width = 200,
-                visible = true
-            }
-        )
         self.mProperty:addPropertyListener(
             "mHP",
             self,
@@ -2539,6 +3031,12 @@ function Client_GamePlayer:receive(parameter)
         elseif parameter.mMessage == "AddMoney" then
             local saved_data = getSavedData()
             saved_data.mMoney = saved_data.mMoney + parameter.mParameter.mMoney
+        elseif parameter.mMessage == "EnterSafeHouse" then
+            SetCameraMode(2)
+            openSafeHouseUI()
+        elseif parameter.mMessage == "LeaveSafeHouse" then
+            SetCameraMode(3)
+            closeSafeHouseUI()
         end
     end
 end
@@ -2564,10 +3062,26 @@ function Client_GamePlayer:_getSendKey()
 end
 
 function Client_GamePlayer:_updateBloodUI()
+    --[[if not self.mBloodUI and GetEntityHeadOnObject(self.mPlayerID, "Blood/" .. tostring(self.mPlayerID)) then
+        self.mBloodUI =
+            GetEntityHeadOnObject(self.mPlayerID, "Blood/" .. tostring(self.mPlayerID)):createChild(
+            {
+                ui_name = "background",
+                type = "container",
+                color = "255 0 0",
+                align = "_ct",
+                y = -100,
+                x = -100,
+                height = 20,
+                width = 200,
+                visible = true
+            }
+        )
+    end
     if self.mProperty:cache().mHP and self.mProperty:cache().mHPLevel then
         self.mBloodUI.width =
             200 * self.mProperty:cache().mHP / GameCompute.computePlayerHP(self.mProperty:cache().mHPLevel)
-    end
+    end]]
 end
 -----------------------------------------------------------------------------------------Client_GameMonster-----------------------------------------------------------------------------------
 function Client_GameMonster:construction(parameter)
@@ -2630,7 +3144,7 @@ function Client_GameMonster:_getSendKey()
 end
 
 function Client_GameMonster:_updateBloodUI()
-    if
+    --[[if
         not self.mBloodUI and GetEntityById(self.mEntityID) and
             GetEntityHeadOnObject(self.mEntityID, "Blood/" .. tostring(self.mEntityID))
      then
@@ -2665,7 +3179,7 @@ function Client_GameMonster:_updateBloodUI()
                 }
             )
         )
-    end
+    end]]
 end
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
