@@ -105,7 +105,7 @@ local function restoreBlock(x, y, z)
         SetBlock(x, y, z, gOriginBlockIDs[key])
     end
 end
-local SavedData = {mMoney = 10000000000}
+local SavedData = {}
 local function getSavedData()
     return GetSavedData() or SavedData
 end
@@ -1315,10 +1315,11 @@ GameConfig.mMonsterLibrary = {
         mAttackTime = 1,
         mStopTime = 1,
         mAttackRange = 1,
-        mSpeed = 1
+        mSpeed = 1,
+        mName = "雄性菜头宝宝"
     },
     {
-        mModelResource = {hash = "FkpOQ8tZE4uAPnRoz5dr6SJenXHr", pid = "6722", ext = "FBX"},
+        mModelResource = {hash="FoHBdQE6rUCrF2BeYRxNbHRxCPPv",pid="12199",ext="FBX",},
         mModelScaling = 2,
         mHP = 49,
         mDefence = {{mType = "穿刺", mValue = 0}},
@@ -1326,7 +1327,8 @@ GameConfig.mMonsterLibrary = {
         mAttackTime = 1,
         mStopTime = 1,
         mAttackRange = 1,
-        mSpeed = 1
+        mSpeed = 1,
+        mName = "蘑菇宝宝"
     },
     {
         mModelResource = {hash = "FklKvN9casvBiqCrvzMjFISaTt_1", pid = "6721", ext = "FBX"},
@@ -1337,7 +1339,8 @@ GameConfig.mMonsterLibrary = {
         mAttackTime = 1,
         mStopTime = 1,
         mAttackRange = 1,
-        mSpeed = 1
+        mSpeed = 1,
+        mName = "皇冠蛇宝宝"
     }
 }
 GameConfig.mTerrainLibrary = {
@@ -1348,7 +1351,7 @@ GameConfig.mTerrainLibrary = {
 GameConfig.mSafeHouse = {mTemplateResource = {hash = "FpHOk_oMV1lBqaTtMLjqAtqyzJp4", pid = "5453", ext = "bmax"}}
 GameConfig.mMatch = {
     mMonsterGenerateSpeed = 0.2,
-    mMonsterCount = 36
+    mMonsterCount = 20
 }
 GameConfig.mPlayers = {
     {mType = "战士", mHP = 70, mAttack = {mType = "穿刺", mValue = 10}, mDefence = {{mType = "物理", mValue = 0}}},
@@ -1363,15 +1366,24 @@ function GameCompute.computePlayerHP(level)
 end
 
 function GameCompute.computePlayerAttackValue(level)
-    return level * 5 + 5
+    return level + 19
 end
 
 function GameCompute.computePlayerAttackTime(level)
-    return 12 / (level + 12) + 0.1
+    local H1 = 0.00005
+    local A8 = level
+    local H2 = -(0.55+(100^2-1)*H1)/99
+    local H3 = -H1+(0.55+(100^2-1)*H1)/99+0.6
+    local J1 = -H2/(2*H1)
+    local J2 = (4*H1*H3-H2^2)/(4*H1)
+    return H1*(A8-J1)^2+J2
 end
 
 function GameCompute.computeMonsterHP(level)
-    return GameCompute.computePlayerAttackValue(level) * 5 / GameCompute.computePlayerAttackTime(level)
+    local C8 = GameCompute.computePlayerAttackValue(level)
+    local B3 = 3
+    local D8 = GameCompute.computePlayerAttackTime(level)
+    return C8*B3/D8
 end
 
 function GameCompute.computeMonsterAttackValue(level)
@@ -1410,16 +1422,18 @@ local function getNextLvTime(lv)
 end
 
 local function getNextLvGold(lv)
+    local C3 = 3
     local nextLvTime = getNextLvTime(lv)
-    local killEfficiency = 5 / 60
+    local killEfficiency = C3 / 60
     local goldEfficiency = lv * 20 + 40
     local nextLvGold = goldEfficiency * nextLvTime
     return nextLvGold
 end
 
 function monLootGold(lv)
+    local C3 = 3
     local nextLvTime = getNextLvTime(lv)
-    local killEfficiency = 5 / 60
+    local killEfficiency = C3 / 60
     local goldEfficiency = lv * 20 + 40
     local nextLvGold = goldEfficiency * nextLvTime
     local nextLvMonNum = nextLvTime / killEfficiency
@@ -1879,6 +1893,7 @@ function GamePlayerProperty:destruction()
     self:safeWrite("mHPLevel")
     self:safeWrite("mAttackValueLevel")
     self:safeWrite("mAttackTimeLevel")
+    self:safeWrite("mConfigIndex")
 end
 
 function GamePlayerProperty:_getLockKey(propertyName)
@@ -1892,6 +1907,7 @@ end
 function GameMonsterProperty:destruction()
     self:safeWrite("mHP")
     self:safeWrite("mLevel")
+    self:safeWrite("mConfigIndex")
 end
 
 function GameMonsterProperty:_getLockKey(propertyName)
@@ -2101,7 +2117,9 @@ end
 function Host_GamePlayerManager:construction()
     self.mPlayers = {}
 
-    self:_createPlayer(EntityWatcher.get(GetPlayerId()))
+    for id,player in pairs(PlayerManager.mPlayers) do
+        self:_createPlayer(EntityWatcher.get(id))
+    end
     PlayerManager.addEventListener(
         "PlayerIn",
         "Host_GamePlayerManager",
@@ -2288,7 +2306,7 @@ function Host_GameMonsterManager:_createMonster(parameter)
         {
             mConfigIndex = parameter.mConfigIndex,
             mPosition = parameter.mPosition,
-            mLevel = GameCompute.computeMonsterLevel(Host_Game.singleton():getPlayerManager().mPlayers)
+            mLevel = Host_Game.singleton().mLevel
         }
     )
     self.mMonsters[#self.mMonsters + 1] = ret
@@ -2495,8 +2513,10 @@ function Host_GamePlayer:initializeProperty(propertyName)
             self.mProperty:safeRead(
                 "mHPLevel",
                 function(value)
-                    self.mProperty:safeWrite("mHP", GameCompute.computePlayerHP(value))
-                    self:_checkDead()
+                    if value then
+                        self.mProperty:safeWrite("mHP", GameCompute.computePlayerHP(value))
+                        self:_checkDead()
+                    end
                 end
             )
         end
@@ -2504,8 +2524,10 @@ function Host_GamePlayer:initializeProperty(propertyName)
         self.mProperty:safeRead(
             "mHPLevel",
             function(value)
-                self.mProperty:safeWrite("mHP", GameCompute.computePlayerHP(value))
-                self:_checkDead()
+                if value then
+                    self.mProperty:safeWrite("mHP", GameCompute.computePlayerHP(value))
+                    self:_checkDead()
+                end
             end
         )
     end
@@ -2564,6 +2586,7 @@ function Host_GameMonster:construction(parameter)
     self.mEntity:setModelFromResource(self:getConfig().mModelResource)
     self.mProperty = new(GameMonsterProperty, {mEntityID = self.mEntityID})
 
+    self.mProperty:safeWrite("mConfigIndex", parameter.mConfigIndex)
     self.mProperty:safeWrite("mLevel", parameter.mLevel)
     self.mProperty:safeWrite("mInitHP", GameCompute.computeMonsterHP(self.mProperty:cache().mLevel))
     self.mProperty:safeWrite("mHP", GameCompute.computeMonsterHP(self.mProperty:cache().mLevel))
@@ -2901,16 +2924,8 @@ function Client_GamePlayer:construction(parameter)
         self.mProperty:safeWrite("mHPLevel", saved_data.mHPLevel)
         self.mProperty:safeWrite("mAttackValueLevel", saved_data.mAttackValueLevel)
         self.mProperty:safeWrite("mAttackTimeLevel", saved_data.mAttackTimeLevel)
-        -- 创建子弹
-        local bullets = CreateItemStack(50101, 999)
-        -- 创建枪
-        local gun = CreateItemStack(40300, 1)
-        -- 把枪和子弹放在人身上
-        SetItemStackToInventory(1, gun)
-        SetItemStackToInventory(2, bullets)
 
-        -- 设置枪里起始的子弹
-        WeaponSystem.get(1):setAmmoCount(30)
+        self:_equpGun()
         -- 显示枪里子弹数量
         GUI.UI(
             {
@@ -2928,13 +2943,8 @@ function Client_GamePlayer:construction(parameter)
                 font_color = "255 255 255"
             }
         )
-
         -- 显示提示
         Tip("按R键重装子弹")
-        WeaponSystem.get(1):setProperty(
-            "atk_speed",
-            GameCompute.computePlayerAttackTime(self.mProperty:cache().mAttackValueLevel) * 1000
-        )
         initUi()
     end
     self.mProperty:safeRead("mConfigIndex")
@@ -2954,9 +2964,14 @@ function Client_GamePlayer:construction(parameter)
         "mAttackTimeLevel",
         self,
         function()
+            if WeaponSystem.get(1) then
+                WeaponSystem.get(1):setProperty(
+                    "atk_speed",
+                    GameCompute.computePlayerAttackTime(self.mProperty:cache().mAttackTimeLevel) * 1000
+                )
+            end
         end
     )
-    if self.mPlayerID ~= GetPlayerId() then
         self.mProperty:addPropertyListener(
             "mHP",
             self,
@@ -2966,7 +2981,6 @@ function Client_GamePlayer:construction(parameter)
                 end
             end
         )
-    end
 
     Client.addListener(self:_getSendKey(), self)
 end
@@ -3014,20 +3028,7 @@ function Client_GamePlayer:receive(parameter)
             SetItemStackToInventory(2, {})
         elseif parameter.mMessage == "Revive" then
             Revive()
-            -- 创建子弹
-            local bullets = CreateItemStack(50101, 999)
-            -- 创建枪
-            local gun = CreateItemStack(40300, 1)
-            -- 把枪和子弹放在人身上
-            SetItemStackToInventory(1, gun)
-            SetItemStackToInventory(2, bullets)
-
-            -- 设置枪里起始的子弹
-            WeaponSystem.get(1):setAmmoCount(30)
-            WeaponSystem.get(1):setProperty(
-                "atk_speed",
-                GameCompute.computePlayerAttackTime(self.mProperty:cache().mAttackValueLevel) * 1000
-            )
+            self:_equpGun()
         elseif parameter.mMessage == "AddMoney" then
             local saved_data = getSavedData()
             saved_data.mMoney = saved_data.mMoney + parameter.mParameter.mMoney
@@ -3062,7 +3063,7 @@ function Client_GamePlayer:_getSendKey()
 end
 
 function Client_GamePlayer:_updateBloodUI()
-    --[[if not self.mBloodUI and GetEntityHeadOnObject(self.mPlayerID, "Blood/" .. tostring(self.mPlayerID)) then
+    if not self.mBloodUI and GetEntityHeadOnObject(self.mPlayerID, "Blood/" .. tostring(self.mPlayerID)) then
         self.mBloodUI =
             GetEntityHeadOnObject(self.mPlayerID, "Blood/" .. tostring(self.mPlayerID)):createChild(
             {
@@ -3070,8 +3071,8 @@ function Client_GamePlayer:_updateBloodUI()
                 type = "container",
                 color = "255 0 0",
                 align = "_ct",
-                y = -100,
-                x = -100,
+                y = -150,
+                x = -150,
                 height = 20,
                 width = 200,
                 visible = true
@@ -3081,7 +3082,24 @@ function Client_GamePlayer:_updateBloodUI()
     if self.mProperty:cache().mHP and self.mProperty:cache().mHPLevel then
         self.mBloodUI.width =
             200 * self.mProperty:cache().mHP / GameCompute.computePlayerHP(self.mProperty:cache().mHPLevel)
-    end]]
+    end
+end
+
+function Client_GamePlayer:_equpGun()
+            -- 创建子弹
+            local bullets = CreateItemStack(50101, 999)
+            -- 创建枪
+            local gun = CreateItemStack(40300, 1)
+            -- 把枪和子弹放在人身上
+            SetItemStackToInventory(1, gun)
+            SetItemStackToInventory(2, bullets)
+
+            -- 设置枪里起始的子弹
+            WeaponSystem.get(1):setAmmoCount(30)
+            WeaponSystem.get(1):setProperty(
+                "atk_speed",
+                GameCompute.computePlayerAttackTime(self.mProperty:cache().mAttackTimeLevel) * 1000
+            )
 end
 -----------------------------------------------------------------------------------------Client_GameMonster-----------------------------------------------------------------------------------
 function Client_GameMonster:construction(parameter)
@@ -3099,6 +3117,13 @@ function Client_GameMonster:construction(parameter)
         "mHP",
         self,
         function(_, value)
+            self:_updateBloodUI()
+        end
+    )
+    self.mProperty:addPropertyListener(
+        "mConfigIndex",
+        self,
+        function(_,value)
             self:_updateBloodUI()
         end
     )
@@ -3130,6 +3155,12 @@ function Client_GameMonster:getID()
     return self.mEntityID
 end
 
+function Client_GameMonster:getConfig()
+    if self.mProperty:cache().mConfigIndex then
+        return GameConfig.mMonsterLibrary[self.mProperty:cache().mConfigIndex]
+    end
+end
+
 function Client_GameMonster:onHit(weapon)
     local property_change = {}
     property_change.mHPSubtract =
@@ -3144,28 +3175,52 @@ function Client_GameMonster:_getSendKey()
 end
 
 function Client_GameMonster:_updateBloodUI()
-    --[[if
-        not self.mBloodUI and GetEntityById(self.mEntityID) and
+    if GetEntityById(self.mEntityID) and GetEntityById(self.mEntityID):GetInnerObject() and 
             GetEntityHeadOnObject(self.mEntityID, "Blood/" .. tostring(self.mEntityID))
      then
-        self.mBloodUI =
-            GetEntityHeadOnObject(self.mEntityID, "Blood/" .. tostring(self.mEntityID)):createChild(
-            {
-                ui_name = "background",
-                type = "container",
-                color = "255 0 0",
-                align = "_ct",
-                y = -100,
-                x = -100,
-                height = 20,
-                width = 200,
-                visible = true
-            }
-        )
+        if not self.mBloodUI then
+            self.mBloodUI =
+                GetEntityHeadOnObject(self.mEntityID, "Blood/" .. tostring(self.mEntityID)):createChild(
+                {
+                    ui_name = "background",
+                    type = "container",
+                    color = "255 0 0",
+                    align = "_ct",
+                    y = -100,
+                    x = -130,
+                    height = 20,
+                    width = 200,
+                    visible = true
+                }
+            )
+        end
+        if not self.mNameUI then
+            self.mNameUI =
+                GetEntityHeadOnObject(self.mEntityID, "Name/" .. tostring(self.mEntityID)):createChild(
+                {
+                    ui_name = "background",
+                    type = "text",
+                    font_type = "微软雅黑",
+                    font_color = "0 255 0",
+                    font_size = 25,
+                    align = "_ct",
+                    y = -150,
+                    x = -130,
+                    height = 50,
+                    width = 200,
+                    visible = true
+                }
+            )
+        end
     end
-    if self.mBloodUI then
-        self.mBloodUI.width =
-            200 * self.mProperty:cache().mHP / GameCompute.computePlayerHP(self.mProperty:cache().mLevel)
+    if self.mBloodUI and self.mNameUI  then
+        if self.mProperty:cache().mHP and self.mProperty:cache().mLevel then
+            self.mBloodUI.width =
+                200 * self.mProperty:cache().mHP / GameCompute.computeMonsterHP(self.mProperty:cache().mLevel)
+        end
+        if self:getConfig() and self.mProperty:cache().mLevel then
+            self.mNameUI.text = "Lv"..tostring(self.mProperty:cache().mLevel).." "..self:getConfig().mName
+        end
     else
         self.mCommandQueue:post(
             new(
@@ -3179,7 +3234,7 @@ function Client_GameMonster:_updateBloodUI()
                 }
             )
         )
-    end]]
+    end
 end
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
