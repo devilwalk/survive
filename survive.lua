@@ -91,6 +91,13 @@ end
 local function vec3Equal(vec1, vec2)
     return vec1[1] == vec2[1] and vec1[2] == vec2[2] and vec1[3] == vec2[3]
 end
+local function array(t)
+    local ret = {}
+    for _, value in pairs(t) do
+        ret[#ret + 1] = value
+    end
+    return ret
+end
 local gOriginBlockIDs = {}
 local function setBlock(x, y, z, blockID, blockDir)
     local key = tostring(x) .. "," .. tostring(y) .. "," .. tostring(z)
@@ -670,11 +677,17 @@ function Host.receive(parameter)
 end
 
 function Host.sendTo(clientPlayerID, parameter)
-    SendTo(clientPlayerID, parameter)
+    local new_parameter = clone(parameter)
+    if not new_parameter.mFrom then
+        new_parameter.mFrom = GetPlayerId()
+    end
+    SendTo(clientPlayerID, new_parameter)
 end
 
 function Host.broadcast(parameter, exceptSelf)
-    SendTo(nil, parameter)
+    local new_parameter = clone(parameter)
+    new_parameter.mFrom = GetPlayerId()
+    SendTo(nil, new_parameter)
     if not exceptSelf then
         receiveMsg(parameter)
     end
@@ -712,6 +725,9 @@ function Client.sendToHost(key, parameter)
     local new_parameter = clone(parameter)
     new_parameter.mKey = key
     new_parameter.mTo = "Host"
+    if not new_parameter.mFrom then
+        new_parameter.mFrom = GetPlayerId()
+    end
     SendTo("host", new_parameter)
 end
 
@@ -719,6 +735,9 @@ function Client.sendToClient(playerID, key, parameter)
     local new_parameter = clone(parameter)
     new_parameter.mKey = key
     new_parameter.mTo = playerID
+    if not new_parameter.mFrom then
+        new_parameter.mFrom = GetPlayerId()
+    end
     if playerID == GetPlayerId() then
         Client.receive(new_parameter)
     else
@@ -730,6 +749,9 @@ function Client.broadcast(key, parameter)
     local new_parameter = clone(parameter)
     new_parameter.mKey = key
     new_parameter.mTo = "All"
+    if not new_parameter.mFrom then
+        new_parameter.mFrom = GetPlayerId()
+    end
     SendTo("host", new_parameter)
 end
 -----------------------------------------------------------------------------------------GlobalProperty-----------------------------------------------------------------------------------------
@@ -2990,6 +3012,7 @@ function Client_GamePlayer:destruction()
     self.mProperty:removePropertyListener("mAttackValueLevel", self)
     self.mProperty:removePropertyListener("mAttackTimeLevel", self)
     self.mProperty:removePropertyListener("mHP", self)
+    delete(self.mProperty)
     if self.mBloodUI then
         self.mBloodUI:destroy()
     end
@@ -3014,6 +3037,9 @@ function Client_GamePlayer:update()
             if saved_data.mAttackTimeLevel ~= self.mProperty:cache().mAttackTimeLevel then
                 self.mProperty:safeWrite("mAttackTimeLevel", saved_data.mAttackTimeLevel)
             end
+        end
+        if WeaponSystem.get(1) and WeaponSystem.get(1):getAmmoCount() == 0 then
+            Tip("按R键重装子弹")
         end
     end
 end
@@ -3133,6 +3159,7 @@ end
 function Client_GameMonster:destruction()
     self.mProperty:removePropertyListener("mLevel", self)
     self.mProperty:removePropertyListener("mHP", self)
+    self.mProperty:removePropertyListener("mConfigIndex", self)
     if self.mBloodUI then
         self.mBloodUI:destroy()
     end
@@ -3262,13 +3289,14 @@ function clear()
     SetItemStackToInventory(1, {})
     SetItemStackToInventory(2, {})
 
-    PlayerManager.clear()
+    if Client_Game.msInstance then
+        delete(Client_Game.singleton())
+    end
     if Host_Game.singleton() then
         delete(Host_Game.singleton())
         Host.broadcast({mMessage = "Clear"})
-    else
-        delete(Client_Game.singleton())
     end
+    PlayerManager.clear()
 end
 
 -- 获取输入
