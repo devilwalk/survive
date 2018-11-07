@@ -671,22 +671,51 @@ end
 function EntityCustom:construction(parameter)
     self.mEntity = CreateEntity(parameter.mX,parameter.mY,parameter.mZ,parameter.mModel)
 
+    Host.addListener("EntityCustom", self)
     Client.addListener("EntityCustom",self)
 end
 
 function EntityCustom:destruction()
     self.mEntity:SetDead(true)
 
+    Host.removeListener("EntityCustom",self)
     Client.removeListener("EntityCustom",self)
 end
 
-function EntityCustom:broadcast(message,parameter,exceptSelf)
-    Host.broadcast({mKey = "EntityCustom", mMessage = message, mParameter = parameter},exceptSelf)
+function EntityCustom:sendToHost(message, parameter)
+    Client.sendToHost("EntityCustom",{mMessage = message,mParameter = parameter})
+end
+
+function EntityCustom:requestToHost(message,parameter)
+    self.mResponseCallback = self.mResponseCallback or {}
+    self.mResponseCallback[message] = callback
+    self:sendToHost(message, parameter)
+end
+
+function EntityCustom:hostSendToClient(playerID,message,parameter)
+    Host.sendTo(playerID,{mKey = "EntityCustom",mMessage = message,mParameter = parameter})
+end
+
+function EntityCustom:clientSendToClient(playerID,message,parameter)
+    Client.sendToClient(playerID,"EntityCustom",{mMessage = message,mParameter = parameter})
+end
+
+function EntityCustom:broadcast(message,parameter)
+    Client.broadcast("EntityCustom",{mMessage = message, mParameter = parameter})
 end
 
 function EntityCustom:receive(parameter)
-    if parameter.mMessage == "SetPositionReal" then
-        self:_setPositionReal(parameter.mParameter.mX,parameter.mParameter.mY,parameter.mParameter.mZ)
+    local is_responese, _ = string.find(parameter.mMessage, "_Response")
+    if is_responese then
+        local message = string.sub(parameter.mMessage, 1, is_responese - 1)
+        if self.mResponseCallback[message] then
+            self.mResponseCallback[message](parameter.mParameter)
+            self.mResponseCallback[message] = nil
+        end
+    else
+        if parameter.mMessage == "SetPositionReal" then
+            self:_setPositionReal(parameter.mParameter.mX,parameter.mParameter.mY,parameter.mParameter.mZ)
+        end
     end
 end
 
@@ -709,6 +738,7 @@ function EntityCustomManager:construction()
     self.mEntities = {}
     self.mNextEntityKey = 1
 
+    Host.addListener("EntityCustomManager", self)
     Client.addListener("EntityCustomManager",self)
 end
 
@@ -717,25 +747,59 @@ function EntityCustomManager:destruction()
         delete(entity)
     end
 
+    Host.removeListener("EntityCustomManager",self)
     Client.removeListener("EntityCustomManager",self)
 end
 
 function EntityCustomManager:receive(parameter)
-    if parameter.mMessage == "CreateEntity" then
-        self:_createEntity(parameter.mParameter.mX,parameter.mParameter.mY,parameter.mParameter.mZ,parameter.mParameter.mModel,parameter.mParameter.mHostKey)
-    elseif parameter.mMessage == "DestroyEntity" then
-        self:_destroyEntity(parameter.mParameter.mHostKey)
+    local is_responese, _ = string.find(parameter.mMessage, "_Response")
+    if is_responese then
+        local message = string.sub(parameter.mMessage, 1, is_responese - 1)
+        if self.mResponseCallback[message] then
+            self.mResponseCallback[message](parameter.mParameter)
+            self.mResponseCallback[message] = nil
+        end
+    else
+        if parameter.mMessage == "CreateEntityHost" then
+            local host_key = self:_generateNextEntityKey()
+            self:broadcast("CreateEntity",{mX=parameter.mParameter.mX,mY=parameter.mParameter.mY,mZ=parameter.mParameter.mZ,mModel=parameter.mParameter.mModel,mHostKey = host_key})
+            self:hostSendToClient(parameter.mFrom,"CreateEntityHost_Response",{mHostKey = host_key})
+        elseif parameter.mMessage == "CreateEntity" then
+            self:_createEntity(parameter.mParameter.mX,parameter.mParameter.mY,parameter.mParameter.mZ,parameter.mParameter.mModel,parameter.mParameter.mHostKey)
+        elseif parameter.mMessage == "DestroyEntity" then
+            self:_destroyEntity(parameter.mParameter.mHostKey)
+        elseif parameter.mMessage == "CreateEntityTrack" then
+            self:_createEntityTrack(parameter.mParameter.mEntityHostKey,parameter.mParameter.mTrack)
+        end
     end
 end
 
-function EntityCustomManager:broadcast(message,parameter,exceptSelf)
-    Host.broadcast({mKey = "EntityCustomManager", mMessage = message, mParameter = parameter},exceptSelf)
+function EntityCustomManager:sendToHost(message, parameter)
+    Client.sendToHost("EntityCustomManager",{mMessage = message,mParameter = parameter})
 end
 
-function EntityCustomManager:createEntity(x,y,z,path)
-    local host_key = self:_generateNextEntityKey()
-    self:broadcast("CreateEntity",{mX=x,mY=y,mZ=z,mModel=path,mHostKey = host_key})
-    return host_key
+function EntityCustomManager:requestToHost(message,parameter,callback)
+    self.mResponseCallback = self.mResponseCallback or {}
+    self.mResponseCallback[message] = callback
+    self:sendToHost(message, parameter)
+end
+
+function EntityCustomManager:hostSendToClient(playerID,message,parameter)
+    Host.sendTo(playerID,{mKey = "EntityCustomManager",mMessage = message,mParameter = parameter})
+end
+
+function EntityCustomManager:clientSendToClient(playerID,message,parameter)
+    Client.sendToClient(playerID,"EntityCustomManager",{mMessage = message,mParameter = parameter})
+end
+
+function EntityCustomManager:broadcast(message,parameter)
+    Client.broadcast("EntityCustomManager",{mMessage = message, mParameter = parameter})
+end
+
+function EntityCustomManager:createEntity(x,y,z,path,callback)
+    self:requestToHost("CreateEntityHost",{mX=x,mY=y,mZ=z,mModel=path},function(parameter)
+        callback(parameter.mHostKey)
+    end)
 end
 
 function EntityCustomManager:getEntity(hostKey)
@@ -744,6 +808,10 @@ end
 
 function EntityCustomManager:destroyEntity(hostKey)
     self:broadcast("DestroyEntity",{mHostKey = hostKey})
+end
+
+function EntityCustomManager:createEntityTrack(entityHostKey,track)
+    self:broadcast("CreateEntityTrack",{mEntityHostKey = entityHostKey,mTrack = track})
 end
 
 function EntityCustomManager:_createEntity(x,y,z,path,hostKey)
@@ -761,6 +829,23 @@ function EntityCustomManager:_generateNextEntityKey()
     local ret = self.mNextEntityKey
     self.mNextEntityKey = self.mNextEntityKey + 1
     return ret
+end
+
+function EntityCustomManager:_createEntityTrack(hostKey,track)
+    CommandQueue.default():post(new(Command_Callback,{mDebug = "EntityTrack/"..tostring(hostKey),mExecutingCallback = function(command)
+        command.mTimer = command.mTimer or new(Timer)
+        local entity = self:getEntity(hostKey)
+        echo("devilwalk","-------------------------------------------------------------------------------------------------------")
+        if not entity then
+            command.mState = Command.EState.Finish
+            return
+        end
+        if track.mType == "Ray" then
+            local src_position = track.mSrcPosition or entity:getPosition()
+            command.mNextPosition = vector3d:new(src_position[1],src_position[2],src_position[3]) + vector3d:new(track.mDirection[1],track.mDirection[2],track.mDirection[3]) * track.mSpeed * command.mTimer:total()
+        end
+        entity.mEntity:SetPosition(command.mNextPosition[1],command.mNextPosition[2],command.mNextPosition[3])
+    end}))
 end
 -----------------------------------------------------------------------------------------Host-----------------------------------------------------------------------------------------
 function Host.addListener(key, listener)
@@ -2342,10 +2427,7 @@ local gameUi = {
           type = "Text",
           align = "_rt",
           text = function()
-            local players = clone(Client_Game.singleton():getPlayerManager().mPlayers)
-            table.sort(players, function(a,b)
-                return GameCompute.computePlayerFightLevel(a:getProperty():cache().mHPLevel,a:getProperty():cache().mAttackValueLevel,a:getProperty():cache().mAttackTimeLevel) >= GameCompute.computePlayerFightLevel(b:getProperty():cache().mHPLevel,b:getProperty():cache().mAttackValueLevel,b:getProperty():cache().mAttackTimeLevel)
-            end)
+            local players = Client_Game.singleton():getPlayerManager():getPlayersSortByFightLevel()
             local text = ""
             for i,player in pairs(players) do
                 text = text .. tostring(i) .. "." .. GetEntityById(player:getID()).nickname .. "\n"
@@ -2376,13 +2458,10 @@ local gameUi = {
           type = "Text",
           align = "_rt",
           text = function()
-            local players = clone(Client_Game.singleton():getPlayerManager().mPlayers)
-            table.sort(players, function(a,b)
-                return GameCompute.computePlayerFightLevel(a:getProperty():cache().mHPLevel,a:getProperty():cache().mAttackValueLevel,a:getProperty():cache().mAttackTimeLevel) >= GameCompute.computePlayerFightLevel(b:getProperty():cache().mHPLevel,b:getProperty():cache().mAttackValueLevel,b:getProperty():cache().mAttackTimeLevel)
-            end)
+            local players = Client_Game.singleton():getPlayerManager():getPlayersSortByFightLevel()
             local text = ""
             for i,player in pairs(players) do
-                text = text .. tostring(GameCompute.computePlayerFightLevel(player:getProperty():cache().mHPLevel,player:getProperty():cache().mAttackValueLevel,player:getProperty():cache().mAttackTimeLevel)) .. "\n"
+                text = text .. tostring(GameCompute.computePlayerFightLevel(player:getProperty():cache().mHPLevel or 1,player:getProperty():cache().mAttackValueLevel or 1,player:getProperty():cache().mAttackTimeLevel or 1)) .. "\n"
             end
             return text
           end,
@@ -2410,13 +2489,10 @@ local gameUi = {
           type = "Text",
           align = "_rt",
           text = function()
-            local players = clone(Client_Game.singleton():getPlayerManager().mPlayers)
-            table.sort(players, function(a,b)
-                return GameCompute.computePlayerFightLevel(a:getProperty():cache().mHPLevel,a:getProperty():cache().mAttackValueLevel,a:getProperty():cache().mAttackTimeLevel) >= GameCompute.computePlayerFightLevel(b:getProperty():cache().mHPLevel,b:getProperty():cache().mAttackValueLevel,b:getProperty():cache().mAttackTimeLevel)
-            end)
+            local players = Client_Game.singleton():getPlayerManager():getPlayersSortByFightLevel()
             local text = ""
             for i,player in pairs(players) do
-                text = text .. tostring(processFloat(player:getProperty():cache().mMoney,2)) .. "\n"
+                text = text .. tostring(processFloat(player:getProperty():cache().mMoney or 0,2)) .. "\n"
             end
             return text
           end,
@@ -2444,10 +2520,7 @@ local gameUi = {
           type = "Text",
           align = "_rt",
           text = function()
-            local players = clone(Client_Game.singleton():getPlayerManager().mPlayers)
-            table.sort(players, function(a,b)
-                return GameCompute.computePlayerFightLevel(a:getProperty():cache().mHPLevel,a:getProperty():cache().mAttackValueLevel,a:getProperty():cache().mAttackTimeLevel) >= GameCompute.computePlayerFightLevel(b:getProperty():cache().mHPLevel,b:getProperty():cache().mAttackValueLevel,b:getProperty():cache().mAttackTimeLevel)
-            end)
+            local players = Client_Game.singleton():getPlayerManager():getPlayersSortByFightLevel()
             local text = ""
             for i,player in pairs(players) do
                 text = text .. tostring(player:getProperty():cache().mKill) .. "\n"
@@ -3568,6 +3641,11 @@ function initUi()
     end
 end
 
+function uninitUi()
+    for i = 1, #gameUi do
+        gameUi[i].destroy = true
+    end
+end
 
 function getUi(name)
     for i = 1, #gameUi do
@@ -4018,7 +4096,6 @@ function Host_GameMonsterManager:setScene(scene)
                     GameCompute.computeMonsterGenerateCountScale(Host_Game.singleton():getPlayerManager().mPlayers)
             }
         )
-        self.mProperty:safeWrite("mMonsterCount",self.mMonsterGenerator.mGenerateCount)
     else
         delete(self.mMonsterGenerator)
         self.mMonsterGenerator = nil
@@ -4030,6 +4107,7 @@ function Host_GameMonsterManager:update(deltaTime)
     self:_updateMonsters(deltaTime)
     --产生新怪物
     self:_generateMonsters(deltaTime)
+    self:_updateMonsterCount()
 end
 
 function Host_GameMonsterManager:broadcast(message, parameter)
@@ -4049,6 +4127,19 @@ function Host_GameMonsterManager:isAllDead()
         end
     end
     return true
+end
+
+function Host_GameMonsterManager:_updateMonsterCount()
+    if self.mMonsterGenerator then
+        local count = self.mMonsterGenerator.mGenerateCount or 0
+        for _, monster in pairs(self.mMonsters) do
+            if monster:getProperty():cache().mHP > 0 then
+                count = count + 1
+            end
+        end
+
+        self.mProperty:safeWrite("mMonsterCount",count)
+    end
 end
 
 function Host_GameMonsterManager:getProperty()
@@ -4615,6 +4706,23 @@ function Client_GamePlayerManager:onHit(weapon, result)
     end
 end
 
+function Client_GamePlayerManager:getPlayersSortByFightLevel()
+    local players = clone(self.mPlayers)
+    table.sort(players, function(a,b)
+        if a:getProperty():cache().mHPLevel
+            and a:getProperty():cache().mAttackValueLevel
+            and a:getProperty():cache().mAttackTimeLevel
+            and b:getProperty():cache().mHPLevel
+            and b:getProperty():cache().mAttackValueLevel
+            and b:getProperty():cache().mAttackTimeLevel
+        then
+            return GameCompute.computePlayerFightLevel(a:getProperty():cache().mHPLevel,a:getProperty():cache().mAttackValueLevel,a:getProperty():cache().mAttackTimeLevel) 
+            >= GameCompute.computePlayerFightLevel(b:getProperty():cache().mHPLevel,b:getProperty():cache().mAttackValueLevel,b:getProperty():cache().mAttackTimeLevel)
+        end
+    end)
+    return players
+end
+
 function Client_GamePlayerManager:_createPlayer(playerID)
     local ret = new(Client_GamePlayer, {mPlayerID = playerID})
     self.mPlayers[#self.mPlayers + 1] = ret
@@ -4803,6 +4911,9 @@ function Client_GamePlayer:destruction()
     if self.mBloodUI then
         self.mBloodUI:destroy()
     end
+    if self.mPlayerID == GetPlayerId() then
+        uninitUi()
+    end
     Client.removeListener(self:_getSendKey(), self)
 end
 
@@ -4873,26 +4984,26 @@ function Client_GamePlayer:onHit(weapon, result)
     if self.mPlayerID==GetPlayerId() then
         local x,y,z = GetPlayer():GetBlockPos()
         GetResourceModel({hash="FrwJ2e5GdVX8aMghRov5waetE7WV",pid="278",ext="bmax",},function(path,err)
-            local host_key = EntityCustomManager.singleton():createEntity(x,y + 1,z,path)
-            local entity = EntityCustomManager.singleton():getEntity(host_key)
-            CommandQueue.default():post(new(Command_Callback,{mDebug = "Client_GamePlayer:onHit",mExecutingCallback = function(command)
-                if result.entity then
-                    local dir = (result.entity:getPosition() - entity.mEntity:getPosition()):normalize()
-                    local pos = entity.mEntity:getPosition() + dir
-                    entity:setPositionReal(pos[1],pos[2],pos[3])
-                elseif result.blockX and result.blockY and result.blockZ then
-                    local x,y,z = entity.mEntity:GetBlockPos()
-                    local dir = vector3d:new(result.blockX - x,result.blockY - y + 1,result.blockZ - z):normalize()
-                    local pos = entity.mEntity:getPosition() + dir
-                    entity:setPositionReal(pos[1],pos[2],pos[3])
-                end
-                command.mTimer = command.mTimer or new(Timer)
-                if command.mTimer:total() > 1 then
-                    delete(command.mTimer)
-                    EntityCustomManager.singleton():destroyEntity(host_key)
-                    command.mState = Command.EState.Finish
-                end
-            end}))
+            EntityCustomManager.singleton():createEntity(x,y + 1,z,path,function(hostKey)
+                CommandQueue.default():post(new(Command_Callback,{mDebug = "Client_GamePlayer:onHit",mExecutingCallback = function(command)
+                    if not command.mTracked then
+                        if result.entity then
+                            local dir = (result.entity:getPosition() - entity.mEntity:getPosition()):normalize()
+                            EntityCustomManager.singleton():createEntityTrack(hostKey,{mType = "Ray",mDirection = dir,mSpeed=10})
+                        elseif result.blockX and result.blockY and result.blockZ then
+                            local dir = vector3d:new(result.blockX - x,result.blockY - (y + 1),result.blockZ - z):normalize()
+                            EntityCustomManager.singleton():createEntityTrack(hostKey,{mType = "Ray",mDirection = dir,mSpeed=10})
+                        end
+                        command.mTracked = true
+                    end
+                    command.mTimer = command.mTimer or new(Timer)
+                    if command.mTimer:total() > 5 then
+                        delete(command.mTimer)
+                        EntityCustomManager.singleton():destroyEntity(hostKey)
+                        command.mState = Command.EState.Finish
+                    end
+                end}))
+            end)
         end)
     end
 end
