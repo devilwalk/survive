@@ -91,6 +91,12 @@ end
 local function vec3Equal(vec1, vec2)
     return vec1[1] == vec2[1] and vec1[2] == vec2[2] and vec1[3] == vec2[3]
 end
+local function processFloat(value,leftPointBit)
+    local part1 = math.floor(value)
+    local part2 = value - math.floor(value)
+    part2 = math.floor(part2*10^leftPointBit)*10^(-leftPointBit)
+    return part1 + part2
+end
 local function array(t)
     local ret = {}
     for _, value in pairs(t) do
@@ -112,7 +118,7 @@ local function restoreBlock(x, y, z)
         SetBlock(x, y, z, gOriginBlockIDs[key])
     end
 end
-local SavedData = {mMoney = 10000000000}
+local SavedData = {mMoney = 10000}
 local function getSavedData()
     return GetSavedData() or SavedData
 end
@@ -1416,6 +1422,8 @@ local GameConfig = {}
 local GameCompute = {}
 local GamePlayerProperty = inherit(Property)
 local GameMonsterProperty = inherit(Property)
+local GameMonsterManagerProperty = inherit(Property)
+local GameProperty = inherit(Property)
 local Host_Game = {}
 local Host_GamePlayerManager = {}
 local Host_GameMonsterManager = {}
@@ -1470,13 +1478,12 @@ GameConfig.mMonsterLibrary = {
     }
 }
 GameConfig.mTerrainLibrary = {
-    {mTemplateResource = {hash = "FkokLxC_zI7okepx2bquNb-d85h7", pid = "5452", ext = "bmax"}},
-    {mTemplateResource = {hash = "Fo_ZXJzECmw0-fPgj1ZSoLkjgnYA", pid = "5423", ext = "bmax"}},
-    {mTemplateResource = {hash = "Fr1x_xY8fzz4YdLAxCYxfrJuXxUR", pid = "5424", ext = "bmax"}}
+    {mTemplateResource = {hash="FmwBON_T9nhgYWceOETvf7_xlyou",pid="13585",ext="bmax",}},
+    {mTemplateResource = {hash="Fq2TeT-66PPYPo-ax1DeIK1x7uhi",pid="13586",ext="bmax",}}
 }
 GameConfig.mSafeHouse = {mTemplateResource = {hash = "FpHOk_oMV1lBqaTtMLjqAtqyzJp4", pid = "5453", ext = "bmax"}}
 GameConfig.mMatch = {
-    mMonsterGenerateSpeed = 0.2,
+    mMonsterGenerateSpeed = 0.3,
     mMonsterCount = 20
 }
 GameConfig.mPlayers = {
@@ -1503,6 +1510,18 @@ function GameCompute.computePlayerAttackTime(level)
     local J1 = -H2/(2*H1)
     local J2 = (4*H1*H3-H2^2)/(4*H1)
     return H1*(A8-J1)^2+J2
+end
+
+function GameCompute.computePlayerAttackTimePercent(level)
+    if level == 1 then
+        return 0
+    end
+    local percent = (GameCompute.computePlayerAttackTime(1) - GameCompute.computePlayerAttackTime(level))/GameCompute.computePlayerAttackTime(1)
+    return processFloat(percent,4)*100
+end
+
+function GameCompute.computePlayerFightLevel(hpLevel,attackValueLevel,attackTimeLevel)
+    return hpLevel + attackValueLevel + attackTimeLevel
 end
 
 function GameCompute.computeMonsterHP(level)
@@ -1576,6 +1595,1559 @@ local GUI = require("GUI")
 -- local saveData = GetSavedData()
 local saveData = getSavedData()
 local gameUi = {
+    -- 升级界面
+    {
+        ui_name = "upgrade_background",
+        type = "Picture",
+        background_color = "0 0 0 255",
+        align = "_ct",
+        y = 0,
+        x = 0,
+        height = 400,
+        width = 900,
+        visible = false,
+    },
+        {
+            ui_name = "upgrade_title",
+            type = "Text",
+            align = "_ct",
+            text = function()
+                local text = "能力提升"
+  
+                return text
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 45,
+            x = function()
+                return getUiValue("upgrade_background", "x") - 0
+            end,
+            y = function()
+                return getUiValue("upgrade_background", "y") - 180
+            end,
+            font_bold = true,
+            height = 70,
+            width = 300,
+            text_format = 1,
+            --text_border = true,
+            shadow = true,
+            font_color = "255 255 255",
+            visible = function()
+                return getUiValue("upgrade_background", "visible")
+            end,
+        },
+        {
+            ui_name = "close_button",
+            type = "Button",
+            align = "_ct",
+            background_color = "220 20 60 255",
+            text = function()
+                local text = "X"
+  
+                return text
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 30,
+            x = function()
+                return getUiValue("upgrade_background", "x") + 420
+            end,
+            y = function()
+                return getUiValue("upgrade_background", "y") - 170
+            end,
+            onclick = function()
+                setUiValue("upgrade_background", "visible", false)
+            end,
+            font_bold = true,
+            height = 50,
+            width = 50,
+            text_format = 5,
+            --text_border = true,
+            shadow = true,
+            font_color = "220 20 60",
+            visible = function()
+                return getUiValue("upgrade_background", "visible")
+            end,
+        },
+        {
+            ui_name = "upgrade_fightingLevel",
+            type = "Text",
+            align = "_ct",
+            text = function()
+                local text = "战斗力等级:" .. tostring(saveData.mHPLevel + saveData.mAttackValueLevel + saveData.mAttackTimeLevel)
+                return text
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 30,
+            x = function()
+                return getUiValue("upgrade_background", "x") - 250
+            end,
+            y = function()
+                return getUiValue("upgrade_background", "y") - 100
+            end,
+            font_bold = true,
+            height = 70,
+            width = 300,
+            text_format = 0,
+            --text_border = true,
+            shadow = true,
+            font_color = "255 255 255",
+            visible = function()
+                return getUiValue("upgrade_background", "visible")
+            end,
+        },
+        {
+            ui_name = "current_gold",
+            type = "Text",
+            align = "_ct",
+            text = function()
+                local text = "金钱：" .. tostring(processFloat(saveData.mMoney,2))
+                return text
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 30,
+            x = function()
+                return getUiValue("upgrade_background", "x") + 150
+            end,
+            y = function()
+                return getUiValue("upgrade_background", "y") - 100
+            end,
+            font_bold = true,
+            height = 70,
+            width = 500,
+            text_format = 2,
+            --text_border = true,
+            shadow = true,
+            font_color = "255 215 0",
+            visible = function()
+                return getUiValue("upgrade_background", "visible")
+            end,
+        },
+        -- 血量
+        {
+            ui_name = "upgrade_HP_background",
+            type = "Picture",
+            background_color = "12 210 62 255",
+            align = "_ct",
+            x = function()
+                return getUiValue("upgrade_background", "x") - 300
+            end,
+            y = function()
+                return getUiValue("upgrade_background", "y") + 0
+            end,
+            height = 150,
+            width = 200,
+            visible = function()
+                return getUiValue("upgrade_background", "visible")
+            end,
+        },
+        {
+            ui_name = "upgrade_HP",
+            type = "Text",
+            align = "_ct",
+            text = function()
+                local text = "生命等级:" .. tostring(saveData.mHPLevel).."\n\n生命值："..tostring(GameCompute.computePlayerHP(saveData.mHPLevel))
+                return text
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 20,
+            x = function()
+                return getUiValue("upgrade_HP_background", "x") + 20
+            end,
+            y = function()
+                return getUiValue("upgrade_HP_background", "y") - 0
+            end,
+            font_bold = true,
+            height = 100,
+            width = 200,
+            text_format = 0,
+            --text_border = true,
+            shadow = true,
+            font_color = "255 255 255",
+            visible = function()
+                return getUiValue("upgrade_background", "visible")
+            end,
+        },
+        {
+            ui_name = "upgrade_HP_button",
+            type = "Button",
+            align = "_ct",
+            background_color = "0 0 0 255",
+            text = function()
+                local text = "升级"
+  
+                return text
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 20,
+            x = function()
+                return getUiValue("upgrade_HP_background", "x") + 0
+            end,
+            y = function()
+                return getUiValue("upgrade_HP_background", "y") + 140
+            end,
+            onclick = function()
+                local money = getNextLvGold(getSavedData().mHPLevel)
+                if getSavedData().mMoney >= money then
+                    getSavedData().mMoney = getSavedData().mMoney - money
+                    getSavedData().mHPLevel = getSavedData().mHPLevel + 1
+                end
+            end,
+            font_bold = true,
+            height = 35,
+            width = 80,
+            text_format = 1,
+            --text_border = true,
+            shadow = true,
+            font_color = "255 255 255",
+            visible = function()
+                return getUiValue("upgrade_background", "visible")
+            end,
+        },
+        {
+            ui_name = "upgrade_HP_gold",
+            type = "Text",
+            align = "_ct",
+            text = function()
+                local text = "需要金钱：" .. tostring(getNextLvGold(getSavedData().mHPLevel))
+                return text
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 20,
+            x = function()
+                return getUiValue("upgrade_HP_background", "x") + 0
+            end,
+            y = function()
+                return getUiValue("upgrade_HP_background", "y") + 110
+            end,
+            font_bold = true,
+            height = 50,
+            width = 200,
+            text_format = 0,
+            --text_border = true,
+            shadow = true,
+            font_color = "255 215 0",
+            visible = function()
+                return getUiValue("upgrade_background", "visible")
+            end,
+        },
+        -- 攻击力
+        {
+            ui_name = "upgrade_attack_background",
+            type = "Picture",
+            background_color = "236 45 14 255",
+            align = "_ct",
+            x = function()
+                return getUiValue("upgrade_background", "x") - 0
+            end,
+            y = function()
+                return getUiValue("upgrade_background", "y") + 0
+            end,
+            height = 150,
+            width = 200,
+            visible = function()
+                return getUiValue("upgrade_background", "visible")
+            end,
+        },
+        {
+            ui_name = "upgrade_attack",
+            type = "Text",
+            align = "_ct",
+            text = function()
+                local text = "攻击等级:" .. tostring(saveData.mAttackValueLevel) .. "\n\n攻击力：" .. tostring(GameCompute.computePlayerAttackValue(saveData.mAttackValueLevel))
+                return text
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 20,
+            x = function()
+                return getUiValue("upgrade_attack_background", "x") + 20
+            end,
+            y = function()
+                return getUiValue("upgrade_attack_background", "y") + 0
+            end,
+            font_bold = true,
+            height = 100,
+            width = 200,
+            text_format = 0,
+            --text_border = true,
+            shadow = true,
+            font_color = "255 255 255",
+            visible = function()
+                return getUiValue("upgrade_background", "visible")
+            end,
+        },
+        {
+            ui_name = "upgrade_attack_button",
+            type = "Button",
+            align = "_ct",
+            background_color = "0 0 0 255",
+            text = function()
+                local text = "升级"
+  
+                return text
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 20,
+            x = function()
+                return getUiValue("upgrade_attack_background", "x") + 0
+            end,
+            y = function()
+                return getUiValue("upgrade_attack_background", "y") + 140
+            end,
+            onclick = function()
+                local money = getNextLvGold(getSavedData().mAttackValueLevel)
+                if getSavedData().mMoney >= money then
+                    getSavedData().mMoney = getSavedData().mMoney - money
+                    getSavedData().mAttackValueLevel = getSavedData().mAttackValueLevel + 1
+                end
+            end,
+            font_bold = true,
+            height = 35,
+            width = 80,
+            text_format = 1,
+            --text_border = true,
+            shadow = true,
+            font_color = "255 255 255",
+            visible = function()
+                return getUiValue("upgrade_background", "visible")
+            end,
+        },
+        {
+            ui_name = "upgrade_attack_gold",
+            type = "Text",
+            align = "_ct",
+            text = function()
+                local text = "需要金钱：" .. tostring(getNextLvGold(getSavedData().mAttackValueLevel))
+                return text
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 20,
+            x = function()
+                return getUiValue("upgrade_attack_background", "x") + 0
+            end,
+            y = function()
+                return getUiValue("upgrade_attack_background", "y") + 110
+            end,
+            font_bold = true,
+            height = 50,
+            width = 200,
+            text_format = 0,
+            --text_border = true,
+            shadow = true,
+            font_color = "255 215 0",
+            visible = function()
+                return getUiValue("upgrade_background", "visible")
+            end,
+        },
+        -- 攻速
+        {
+            ui_name = "upgrade_attSpeed_background",
+            type = "Picture",
+            background_color = "245 230 9 255",
+            align = "_ct",
+            x = function()
+                return getUiValue("upgrade_background", "x") + 300
+            end,
+            y = function()
+                return getUiValue("upgrade_background", "y") + 0
+            end,
+            height = 150,
+            width = 200,
+            visible = function()
+                return getUiValue("upgrade_background", "visible")
+            end,
+        },
+        {
+            ui_name = "upgrade_attSpeed",
+            type = "Text",
+            align = "_ct",
+            text = function()
+                local text = "攻速等级:" .. tostring(saveData.mAttackTimeLevel) .. "\n\n攻速提升：" .. tostring(GameCompute.computePlayerAttackTimePercent(saveData.mAttackTimeLevel)) .. "%"
+                return text
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 20,
+            x = function()
+                return getUiValue("upgrade_attSpeed_background", "x") + 20
+            end,
+            y = function()
+                return getUiValue("upgrade_attSpeed_background", "y") + 0
+            end,
+            font_bold = true,
+            height = 100,
+            width = 200,
+            text_format = 0,
+            --text_border = true,
+            shadow = true,
+            font_color = "255 255 255",
+            visible = function()
+                return getUiValue("upgrade_background", "visible")
+            end,
+        },
+        {
+            ui_name = "upgrade_attSpeed_button",
+            type = "Button",
+            align = "_ct",
+            background_color = "0 0 0 255",
+            text = function()
+                local text = "升级"
+  
+                return text
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 20,
+            x = function()
+                return getUiValue("upgrade_attSpeed_background", "x") + 0
+            end,
+            y = function()
+                return getUiValue("upgrade_attSpeed_background", "y") + 140
+            end,
+            onclick = function()
+                local money = getNextLvGold(getSavedData().mAttackTimeLevel)
+                if getSavedData().mMoney >= money then
+                    getSavedData().mMoney = getSavedData().mMoney - money
+                    getSavedData().mAttackTimeLevel = getSavedData().mAttackTimeLevel + 1
+                end
+            end,
+            font_bold = true,
+            height = 35,
+            width = 80,
+            text_format = 1,
+            --text_border = true,
+            shadow = true,
+            font_color = "255 255 255",
+            visible = function()
+                return getUiValue("upgrade_background", "visible")
+            end,
+        },
+        {
+            ui_name = "upgrade_attSpeed_gold",
+            type = "Text",
+            align = "_ct",
+            text = function()
+                local text = "需要金钱：" .. tostring(getNextLvGold(getSavedData().mAttackTimeLevel))
+                return text
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 20,
+            x = function()
+                return getUiValue("upgrade_attSpeed_background", "x") + 0
+            end,
+            y = function()
+                return getUiValue("upgrade_attSpeed_background", "y") + 110
+            end,
+            font_bold = true,
+            height = 50,
+            width = 200,
+            text_format = 0,
+            --text_border = true,
+            shadow = true,
+            font_color = "255 215 0",
+            visible = function()
+                return getUiValue("upgrade_background", "visible")
+            end,
+        },
+    -- 左下角状态栏
+    {
+        ui_name = "state_background",
+        type = "Picture",
+        background_color = "0 0 0 255",
+        align = "_lb",
+        y = -10,
+        x = 10,
+        height = 200,
+        width = 300,
+        visible = true,
+    },
+        {
+            ui_name = "state_fightingLevel",
+            type = "Text",
+            align = "_lb",
+            text = function()
+                local text = "战斗力等级:" .. tostring(saveData.mHPLevel + saveData.mAttackValueLevel + saveData.mAttackTimeLevel)
+                return text
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 30,
+            x = function()
+                return getUiValue("state_background", "x") - 0
+            end,
+            y = function()
+                return getUiValue("state_background", "y") - 120
+            end,
+            font_bold = true,
+            height = 70,
+            width = 400,
+            text_format = 0,
+            --text_border = true,
+            shadow = true,
+            font_color = "255 255 255",
+            visible = function()
+                return getUiValue("state_background", "visible")
+            end,
+        },
+        {
+            ui_name = "state_levels",
+            type = "Text",
+            align = "_lb",
+            text = function()
+                local text = "生命(Lv"..tostring(saveData.mHPLevel)..")："..tostring(GameCompute.computePlayerHP(saveData.mHPLevel))..
+                "\n攻击(lv"..tostring(saveData.mAttackValueLevel)..")："..tostring(GameCompute.computePlayerAttackValue(saveData.mAttackValueLevel))..
+                "\n攻速(lv"..tostring(saveData.mAttackTimeLevel)..")："..tostring(GameCompute.computePlayerAttackTimePercent(saveData.mAttackTimeLevel)).."%\n"
+                return text
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 20,
+            x = function()
+                return getUiValue("state_background", "x") - 0
+            end,
+            y = function()
+                return getUiValue("state_background", "y") - 30
+            end,
+            font_bold = true,
+            height = 100,
+            width = 400,
+            text_format = 0,
+            --text_border = true,
+            shadow = true,
+            font_color = "255 255 255",
+            visible = function()
+                return getUiValue("state_background", "visible")
+            end,
+        },
+        {
+            ui_name = "upgrade_button",
+            type = "Button",
+            align = "_lb",
+            background_color = "22 255 0 255",
+            text = function()
+                local text = "升级(U)"
+  
+                return text
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 20,
+            x = function()
+                return getUiValue("state_background", "x") + 200
+            end,
+            y = function()
+                return getUiValue("state_background", "y") -60
+            end,
+            onclick = function()
+                setUiValue("upgrade_background", "visible", true)
+            end,
+            font_bold = true,
+            height = 50,
+            width = 100,
+            text_format = 5,
+            --text_border = true,
+            shadow = true,
+            font_color = "255 255 255",
+            visible = function()
+                return getUiValue("state_background", "visible")
+            end,
+        },
+    -- 关卡信息
+    {
+        ui_name = "levelInfo_background",
+        type = "Picture",
+        background_color = "0 0 0 0",
+        align = "_ctt",
+        y = 0,
+        x = 0,
+        height = 200,
+        width = 300,
+        visible = false,
+    },
+        {
+            ui_name = "levelInfo_monsterLeft",
+            type = "Text",
+            align = "_ctt",
+            text = function()
+                if Client_Game.singleton():getMonsterManager():getProperty():cache().mMonsterCount then
+                    local text = "怪物剩余：" .. tostring(Client_Game.singleton():getMonsterManager():getProperty():cache().mMonsterCount)
+                    return text
+                end
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 30,
+            x = function()
+                return getUiValue("levelInfo_background", "x") - 190
+            end,
+            y = function()
+                return getUiValue("levelInfo_background", "y") - 0
+            end,
+            font_bold = true,
+            height = 100,
+            width = 220,
+            text_format = 2,
+            --text_border = true,
+            shadow = true,
+            font_color = "255 255 255",
+            visible = function()
+                return getUiValue("levelInfo_background", "visible")
+            end,
+        },
+        {
+            ui_name = "levelInfo_currentLevel",
+            type = "Text",
+            align = "_ctt",
+            text = function()
+                local text = "关卡：" .. tostring(Client_Game.singleton():getProperty():cache().mLevel)
+                return text
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 30,
+            x = function()
+                return getUiValue("levelInfo_background", "x") + 280
+            end,
+            y = function()
+                return getUiValue("levelInfo_background", "y") - 0
+            end,
+            font_bold = true,
+            height = 100,
+            width = 400,
+            text_format = 0,
+            --text_border = true,
+            shadow = true,
+            font_color = "255 255 255",
+            visible = function()
+                return getUiValue("levelInfo_background", "visible")
+            end,
+        },
+        {
+            ui_name = "levelInfo_timeLeft",
+            type = "Text",
+            align = "_ctt",
+            text = function()
+                local text = "剩余时间：9999"
+                return text
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 30,
+            x = function()
+                return getUiValue("levelInfo_background", "x") + 0
+            end,
+            y = function()
+                return getUiValue("levelInfo_background", "y") + 60
+            end,
+            font_bold = true,
+            height = 100,
+            width = 300,
+            text_format = 1,
+            --text_border = true,
+            shadow = true,
+            font_color = "255 255 255",
+            visible = function()
+                return getUiValue("levelInfo_background", "visible")
+            end,
+        },
+        {
+            ui_name = "chooseLv_vote_button",
+            type = "Button",
+            align = "_ctt",
+            background_color = "22 255 0 255",
+            text = function()
+                local text = "选关投票(L)"
+  
+                return text
+            end,
+            -- font_type = "Source Han Sans SC Bold",
+            font_size = 18,
+            x = function()
+                return getUiValue("levelInfo_background", "x") + 370
+            end,
+            y = function()
+                return getUiValue("levelInfo_background", "y") + 5
+            end,
+            onclick = function()
+            end,
+            font_bold = true,
+            height = 40,
+            width = 120,
+            text_format = 5,
+            --text_border = true,
+            shadow = true,
+            font_color = "255 255 255",
+            visible = function()
+                return getUiValue("levelInfo_background", "visible")
+            end,
+        },
+    -- 排行榜
+    {
+      ui_name = "ranking_background",
+      type = "Picture",
+      background_color = "0 0 0 0",
+      align = "_rt",
+      y = 0,
+      x = 0,
+      height = 200,
+      width = 300,
+      visible = true,
+    },
+        {
+          ui_name = "ranking_tip",
+          type = "Text",
+          align = "_rt",
+          text = function()
+              local text = "按tab打开/关闭排行榜"
+              return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 18,
+          x = function()
+              return getUiValue("ranking_background", "x") + 0
+          end,
+          y = function()
+              return getUiValue("ranking_background", "y") + 100
+          end,
+          font_bold = true,
+          height = 100,
+          width = 200,
+          text_format = 0,
+          --text_border = true,
+          shadow = true,
+          font_color = "255 255 255 150",
+          visible = function()
+              return getUiValue("ranking_background", "visible")
+          end,
+        },
+        {
+          ui_name = "ranking_tittle",
+          type = "Text",
+          align = "_rt",
+          text = function()
+              local text = "玩家        战斗力等级     金钱         杀怪数"
+              return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 18,
+          x = function()
+              return getUiValue("ranking_background", "x") + 80
+          end,
+          y = function()
+              return getUiValue("ranking_background", "y") + 130
+          end,
+          font_bold = true,
+          height = 100,
+          width = 400,
+          text_format = 0,
+          --text_border = true,
+          shadow = true,
+          font_color = "255 255 255",
+          visible = function()
+              return getUiValue("ranking_background", "visible")
+          end,
+        },
+        {
+          ui_name = "ranking_playerName",
+          type = "Text",
+          align = "_rt",
+          text = function()
+            local players = clone(Client_Game.singleton():getPlayerManager().mPlayers)
+            table.sort(players, function(a,b)
+                return GameCompute.computePlayerFightLevel(a:getProperty():cache().mHPLevel,a:getProperty():cache().mAttackValueLevel,a:getProperty():cache().mAttackTimeLevel) >= GameCompute.computePlayerFightLevel(b:getProperty():cache().mHPLevel,b:getProperty():cache().mAttackValueLevel,b:getProperty():cache().mAttackTimeLevel)
+            end)
+            local text = ""
+            for i,player in pairs(players) do
+                text = text .. tostring(i) .. "." .. GetEntityById(player:getID()).nickname .. "\n"
+            end
+            return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 18,
+          x = function()
+              return getUiValue("ranking_background", "x") - 210
+          end,
+          y = function()
+              return getUiValue("ranking_background", "y") + 160
+          end,
+          font_bold = true,
+          height = 500,
+          width = 150,
+          text_format = 0,
+          --text_border = true,
+          shadow = true,
+          font_color = "255 255 255",
+          visible = function()
+              return getUiValue("ranking_background", "visible")
+          end,
+        },
+        {
+          ui_name = "ranking_fightLevel",
+          type = "Text",
+          align = "_rt",
+          text = function()
+            local players = clone(Client_Game.singleton():getPlayerManager().mPlayers)
+            table.sort(players, function(a,b)
+                return GameCompute.computePlayerFightLevel(a:getProperty():cache().mHPLevel,a:getProperty():cache().mAttackValueLevel,a:getProperty():cache().mAttackTimeLevel) >= GameCompute.computePlayerFightLevel(b:getProperty():cache().mHPLevel,b:getProperty():cache().mAttackValueLevel,b:getProperty():cache().mAttackTimeLevel)
+            end)
+            local text = ""
+            for i,player in pairs(players) do
+                text = text .. tostring(GameCompute.computePlayerFightLevel(player:getProperty():cache().mHPLevel,player:getProperty():cache().mAttackValueLevel,player:getProperty():cache().mAttackTimeLevel)) .. "\n"
+            end
+            return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 18,
+          x = function()
+              return getUiValue("ranking_background", "x") - 170
+          end,
+          y = function()
+              return getUiValue("ranking_background", "y") + 160
+          end,
+          font_bold = true,
+          height = 500,
+          width = 50,
+          text_format = 0,
+          --text_border = true,
+          shadow = true,
+          font_color = "255 255 255",
+          visible = function()
+              return getUiValue("ranking_background", "visible")
+          end,
+        },
+        {
+          ui_name = "ranking_gold",
+          type = "Text",
+          align = "_rt",
+          text = function()
+            local players = clone(Client_Game.singleton():getPlayerManager().mPlayers)
+            table.sort(players, function(a,b)
+                return GameCompute.computePlayerFightLevel(a:getProperty():cache().mHPLevel,a:getProperty():cache().mAttackValueLevel,a:getProperty():cache().mAttackTimeLevel) >= GameCompute.computePlayerFightLevel(b:getProperty():cache().mHPLevel,b:getProperty():cache().mAttackValueLevel,b:getProperty():cache().mAttackTimeLevel)
+            end)
+            local text = ""
+            for i,player in pairs(players) do
+                text = text .. tostring(processFloat(player:getProperty():cache().mMoney,2)) .. "\n"
+            end
+            return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 18,
+          x = function()
+              return getUiValue("ranking_background", "x") - 50
+          end,
+          y = function()
+              return getUiValue("ranking_background", "y") + 160
+          end,
+          font_bold = true,
+          height = 500,
+          width = 100,
+          text_format = 0,
+          --text_border = true,
+          shadow = true,
+          font_color = "255 255 255",
+          visible = function()
+              return getUiValue("ranking_background", "visible")
+          end,
+        },
+        {
+          ui_name = "ranking_kills",
+          type = "Text",
+          align = "_rt",
+          text = function()
+            local players = clone(Client_Game.singleton():getPlayerManager().mPlayers)
+            table.sort(players, function(a,b)
+                return GameCompute.computePlayerFightLevel(a:getProperty():cache().mHPLevel,a:getProperty():cache().mAttackValueLevel,a:getProperty():cache().mAttackTimeLevel) >= GameCompute.computePlayerFightLevel(b:getProperty():cache().mHPLevel,b:getProperty():cache().mAttackValueLevel,b:getProperty():cache().mAttackTimeLevel)
+            end)
+            local text = ""
+            for i,player in pairs(players) do
+                text = text .. tostring(player:getProperty():cache().mKill) .. "\n"
+            end
+            return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 18,
+          x = function()
+              return getUiValue("ranking_background", "x") +30
+          end,
+          y = function()
+              return getUiValue("ranking_background", "y") + 160
+          end,
+          font_bold = true,
+          height = 500,
+          width = 100,
+          text_format = 0,
+          --text_border = true,
+          shadow = true,
+          font_color = "255 255 255",
+          visible = function()
+              return getUiValue("ranking_background", "visible")
+          end,
+        },
+  -- 选关界面
+    {
+      ui_name = "chooseLevel_background",
+      type = "Picture",
+      background_color = "0 0 0 255",
+      align = "_ct",
+      y = 0,
+      x = 0,
+      height = 400,
+      width = 800,
+      visible = false,
+    },
+        {
+          ui_name = "close_chooseLevel_button",
+          type = "Button",
+          align = "_ct",
+          background_color = "220 20 60 255",
+          text = function()
+              local text = "X"
+  
+              return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 30,
+          x = function()
+              return getUiValue("chooseLevel_background", "x") + 370
+          end,
+          y = function()
+              return getUiValue("chooseLevel_background", "y") - 170
+          end,
+          onclick = function()
+            setUiValue("chooseLevel_background", "visible", false)
+          end,
+          font_bold = true,
+          height = 50,
+          width = 50,
+          text_format = 5,
+          --text_border = true,
+          shadow = true,
+          font_color = "220 20 60",
+          visible = function()
+              return getUiValue("chooseLevel_background", "visible")
+          end,
+        },
+        {
+          ui_name = "chooseLevel_title",
+          type = "Text",
+          align = "_ct",
+          text = function()
+              local text =  "选关投票"
+             return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 40,
+          x = function()
+              return getUiValue("chooseLevel_background", "x") +0
+          end,
+          y = function()
+              return getUiValue("chooseLevel_background", "y") - 180
+          end,
+          font_bold = true,
+          height = 50,
+          width = 200,
+          text_format = 1,
+          --text_border = true,
+          shadow = true,
+          font_color = "255 255 255",
+          visible = function()
+              return getUiValue("chooseLevel_background", "visible")
+          end,
+        },
+        {
+          ui_name = "chooseLevel_text",
+          type = "Text",
+          align = "_ct",
+          text = function()
+             local text =  "1.仅能选择低于自己战斗力等级的关卡发起投票\n2.需要大于50%的队友同意，才能选关成功"
+             return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 20,
+          x = function()
+              return getUiValue("chooseLevel_background", "x") +50
+          end,
+          y = function()
+              return getUiValue("chooseLevel_background", "y") - 100
+          end,
+          font_bold = true,
+          height = 100,
+          width = 500,
+          text_format = 0,
+          --text_border = true,
+          shadow = true,
+          font_color = "255 255 255",
+          visible = function()
+              return getUiValue("chooseLevel_background", "visible")
+          end,
+        },
+        {
+          ui_name = "level1_button",
+          type = "Button",
+          align = "_ct",
+          background_color = "255 255 255 255",
+          text = function()
+              local text = "1"
+  
+              return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 30,
+          x = function()
+              return getUiValue("chooseLevel_background", "x") - 300
+          end,
+          y = function()
+              return getUiValue("chooseLevel_background", "y") - 40
+          end,
+          onclick = function()
+              Client_Game.singleton():switchLevel(1)
+          end,
+          font_bold = true,
+          height = 50,
+          width = 80,
+          text_format = 5,
+          --text_border = true,
+          shadow = true,
+          font_color = "220 20 60",
+          visible = function()
+              return getUiValue("chooseLevel_background", "visible")
+          end,
+        },
+        {
+          ui_name = "level2_button",
+          type = "Button",
+          align = "_ct",
+          background_color = "255 255 255 255",
+          text = function()
+              local text = "30"
+  
+              return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 30,
+          x = function()
+              return getUiValue("chooseLevel_background", "x") - 150
+          end,
+          y = function()
+              return getUiValue("chooseLevel_background", "y") - 40
+          end,
+          onclick = function()
+            Client_Game.singleton():switchLevel(30)
+        end,
+          font_bold = true,
+          height = 50,
+          width = 80,
+          text_format = 5,
+          --text_border = true,
+          shadow = true,
+          font_color = "220 20 60",
+          visible = function()
+              return getUiValue("chooseLevel_background", "visible")
+          end,
+        },
+        {
+          ui_name = "level3_button",
+          type = "Button",
+          align = "_ct",
+          background_color = "255 255 255 255",
+          text = function()
+              local text = "60"
+  
+              return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 30,
+          x = function()
+              return getUiValue("chooseLevel_background", "x") - 0
+          end,
+          y = function()
+              return getUiValue("chooseLevel_background", "y") - 40
+          end,
+          onclick = function()
+            Client_Game.singleton():switchLevel(60)
+          end,
+          font_bold = true,
+          height = 50,
+          width = 80,
+          text_format = 5,
+          --text_border = true,
+          shadow = true,
+          font_color = "220 20 60",
+          visible = function()
+              return getUiValue("chooseLevel_background", "visible")
+          end,
+        },
+        {
+          ui_name = "level4_button",
+          type = "Button",
+          align = "_ct",
+          background_color = "255 255 255 255",
+          text = function()
+              local text = "90"
+  
+              return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 30,
+          x = function()
+              return getUiValue("chooseLevel_background", "x") + 150
+          end,
+          y = function()
+              return getUiValue("chooseLevel_background", "y") - 40
+          end,
+          onclick = function()
+            Client_Game.singleton():switchLevel(90)
+          end,
+          font_bold = true,
+          height = 50,
+          width = 80,
+          text_format = 5,
+          --text_border = true,
+          shadow = true,
+          font_color = "220 20 60",
+          visible = function()
+              return getUiValue("chooseLevel_background", "visible")
+          end,
+        },
+        {
+          ui_name = "level5_button",
+          type = "Button",
+          align = "_ct",
+          background_color = "255 255 255 255",
+          text = function()
+              local text = "120"
+  
+              return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 30,
+          x = function()
+              return getUiValue("chooseLevel_background", "x") + 300
+          end,
+          y = function()
+              return getUiValue("chooseLevel_background", "y") - 40
+          end,
+          onclick = function()
+            Client_Game.singleton():switchLevel(120)
+          end,
+          font_bold = true,
+          height = 50,
+          width = 80,
+          text_format = 5,
+          --text_border = true,
+          shadow = true,
+          font_color = "220 20 60",
+          visible = function()
+              return getUiValue("chooseLevel_background", "visible")
+          end,
+        },
+        {
+          ui_name = "level6_button",
+          type = "Button",
+          align = "_ct",
+          background_color = "255 255 255 255",
+          text = function()
+              local text = "150"
+  
+              return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 30,
+          x = function()
+              return getUiValue("chooseLevel_background", "x") - 300
+          end,
+          y = function()
+              return getUiValue("chooseLevel_background", "y") + 80
+          end,
+          onclick = function()
+            Client_Game.singleton():switchLevel(150)
+          end,
+          font_bold = true,
+          height = 50,
+          width = 80,
+          text_format = 5,
+          --text_border = true,
+          shadow = true,
+          font_color = "220 20 60",
+          visible = function()
+              return getUiValue("chooseLevel_background", "visible")
+          end,
+        },
+        {
+          ui_name = "level7_button",
+          type = "Button",
+          align = "_ct",
+          background_color = "255 255 255 255",
+          text = function()
+              local text = "180"
+  
+              return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 30,
+          x = function()
+              return getUiValue("chooseLevel_background", "x") - 150
+          end,
+          y = function()
+              return getUiValue("chooseLevel_background", "y") + 80
+          end,
+          onclick = function()
+            Client_Game.singleton():switchLevel(180)
+          end,
+          font_bold = true,
+          height = 50,
+          width = 80,
+          text_format = 5,
+          --text_border = true,
+          shadow = true,
+          font_color = "220 20 60",
+          visible = function()
+              return getUiValue("chooseLevel_background", "visible")
+          end,
+        },
+        {
+          ui_name = "level8_button",
+          type = "Button",
+          align = "_ct",
+          background_color = "255 255 255 255",
+          text = function()
+              local text = "210"
+  
+              return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 30,
+          x = function()
+              return getUiValue("chooseLevel_background", "x") - 0
+          end,
+          y = function()
+              return getUiValue("chooseLevel_background", "y") + 80
+          end,
+          onclick = function()
+            Client_Game.singleton():switchLevel(210)
+          end,
+          font_bold = true,
+          height = 50,
+          width = 80,
+          text_format = 5,
+          --text_border = true,
+          shadow = true,
+          font_color = "220 20 60",
+          visible = function()
+              return getUiValue("chooseLevel_background", "visible")
+          end,
+        },
+        {
+          ui_name = "level9_button",
+          type = "Button",
+          align = "_ct",
+          background_color = "255 255 255 255",
+          text = function()
+              local text = "240"
+  
+              return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 30,
+          x = function()
+              return getUiValue("chooseLevel_background", "x") + 150
+          end,
+          y = function()
+              return getUiValue("chooseLevel_background", "y") + 80
+          end,
+          onclick = function()
+            Client_Game.singleton():switchLevel(240)
+          end,
+          font_bold = true,
+          height = 50,
+          width = 80,
+          text_format = 5,
+          --text_border = true,
+          shadow = true,
+          font_color = "220 20 60",
+          visible = function()
+              return getUiValue("chooseLevel_background", "visible")
+          end,
+        },
+        {
+          ui_name = "level10_button",
+          type = "Button",
+          align = "_ct",
+          background_color = "255 255 255 255",
+          text = function()
+              local text = "270"
+  
+              return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 30,
+          x = function()
+              return getUiValue("chooseLevel_background", "x") + 300
+          end,
+          y = function()
+              return getUiValue("chooseLevel_background", "y") + 80
+          end,
+          onclick = function()
+            Client_Game.singleton():switchLevel(270)
+          end,
+          font_bold = true,
+          height = 50,
+          width = 80,
+          text_format = 5,
+          --text_border = true,
+          shadow = true,
+          font_color = "220 20 60",
+          visible = function()
+              return getUiValue("chooseLevel_background", "visible")
+          end,
+        },
+    {
+      ui_name = "voteLevel_background",
+      type = "Picture",
+      background_color = "0 0 0 255",
+      align = "_ct",
+      y = 0,
+      x = 0,
+      height = 400,
+      width = 800,
+      visible = false,
+    },
+        {
+          ui_name = "close_voteLevel_button",
+          type = "Button",
+          align = "_ct",
+          background_color = "220 20 60 255",
+          text = function()
+              local text = "X"
+  
+              return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 30,
+          x = function()
+              return getUiValue("voteLevel_background", "x") + 370
+          end,
+          y = function()
+              return getUiValue("voteLevel_background", "y") - 170
+          end,
+          onclick = function()
+              setUiValue("voteLevel_background", "visible", false)
+          end,
+          font_bold = true,
+          height = 50,
+          width = 50,
+          text_format = 5,
+          --text_border = true,
+          shadow = true,
+          font_color = "220 20 60",
+          visible = function()
+              return getUiValue("voteLevel_background", "visible")
+          end,
+        },
+        {
+          ui_name = "voteLevel_title",
+          type = "Text",
+          align = "_ct",
+          text = function()
+             local text =  "换关投票"
+             return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 40,
+          x = function()
+              return getUiValue("voteLevel_background", "x") +0
+          end,
+          y = function()
+              return getUiValue("voteLevel_background", "y") - 150
+          end,
+          font_bold = true,
+          height = 100,
+          width = 500,
+          text_format = 1,
+          --text_border = true,
+          shadow = true,
+          font_color = "255 255 255",
+          visible = function()
+              return getUiValue("voteLevel_background", "visible")
+          end,
+        },
+        {
+          ui_name = "voteTimeLeft",
+          type = "Text",
+          align = "_ct",
+          text = function()
+              local text = "剩余时间：200"
+  
+              return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 20,
+          x = function()
+              return getUiValue("voteLevel_background", "x") - 250
+          end,
+          y = function()
+              return getUiValue("voteLevel_background", "y") - 150
+          end,
+          onclick = function()
+              -- closeSafeHouseUI()
+          end,
+          font_bold = true,
+          height = 50,
+          width = 250,
+          text_format = 0,
+          --text_border = true,
+          shadow = true,
+          font_color = "255 255 255",
+          visible = function()
+              return getUiValue("voteLevel_background", "visible")
+          end,
+        },
+        {
+          ui_name = "voteLevel_text",
+          type = "Text",
+          align = "_ct",
+          text = function()
+              -- local text = "战斗力等级:" .. tostring(saveData.mHPLevel + saveData.mAttackValueLevel + saveData.mAttackTimeLevel)
+             local text =  "玩家名玩家名 想切换到关卡等级200，是否同意？"
+             return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 20,
+          x = function()
+              return getUiValue("voteLevel_background", "x") +50
+          end,
+          y = function()
+              return getUiValue("voteLevel_background", "y") - 100
+          end,
+          font_bold = true,
+          height = 100,
+          width = 500,
+          text_format = 0,
+          --text_border = true,
+          shadow = true,
+          font_color = "255 255 255",
+          visible = function()
+              return getUiValue("voteLevel_background", "visible")
+          end,
+        },
+        {
+          ui_name = "agree_button",
+          type = "Button",
+          align = "_ct",
+          background_color = "255 255 255 255",
+          text = function()
+              local text = "同意(Y)"
+  
+              return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 30,
+          x = function()
+              return getUiValue("voteLevel_background", "x") - 180
+          end,
+          y = function()
+              return getUiValue("voteLevel_background", "y") + 0
+          end,
+          onclick = function()
+              -- closeSafeHouseUI()
+          end,
+          font_bold = true,
+          height = 50,
+          width = 150,
+          text_format = 5,
+          --text_border = true,
+          shadow = true,
+          font_color = "220 20 60",
+          visible = function()
+              return getUiValue("voteLevel_background", "visible")
+          end,
+        },
+        {
+          ui_name = "disagree_button",
+          type = "Button",
+          align = "_ct",
+          background_color = "255 255 255 255",
+          text = function()
+              local text = "不同意(N)"
+  
+              return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 30,
+          x = function()
+              return getUiValue("voteLevel_background", "x") + 180
+          end,
+          y = function()
+              return getUiValue("voteLevel_background", "y") + 0
+          end,
+          onclick = function()
+              -- closeSafeHouseUI()
+          end,
+          font_bold = true,
+          height = 50,
+          width = 150,
+          text_format = 1,
+          --text_border = true,
+          shadow = true,
+          font_color = "220 20 60",
+          visible = function()
+              return getUiValue("voteLevel_background", "visible")
+          end,
+        },
+        {
+          ui_name = "agree_text",
+          type = "Text",
+          align = "_ct",
+          text = function()
+              local text = "(10票)"
+  
+              return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 30,
+          x = function()
+              return getUiValue("voteLevel_background", "x") - 180
+          end,
+          y = function()
+              return getUiValue("voteLevel_background", "y") + 80
+          end,
+          onclick = function()
+              -- closeSafeHouseUI()
+          end,
+          font_bold = true,
+          height = 50,
+          width = 150,
+          text_format = 1,
+          --text_border = true,
+          shadow = true,
+          font_color = "255 255 255",
+          visible = function()
+              return getUiValue("voteLevel_background", "visible")
+          end,
+        },
+        {
+          ui_name = "disagree_text",
+          type = "Text",
+          align = "_ct",
+          text = function()
+              local text = "(10票)"
+  
+              return text
+          end,
+          -- font_type = "Source Han Sans SC Bold",
+          font_size = 30,
+          x = function()
+              return getUiValue("voteLevel_background", "x") + 180
+          end,
+          y = function()
+              return getUiValue("voteLevel_background", "y") + 80
+          end,
+          onclick = function()
+              -- closeSafeHouseUI()
+          end,
+          font_bold = true,
+          height = 50,
+          width = 150,
+          text_format = 1,
+          --text_border = true,
+          shadow = true,
+          font_color = "255 255 255",
+          visible = function()
+              return getUiValue("voteLevel_background", "visible")
+          end,
+        },
+  }
+  --[[local gameUi = {
     {
         ui_name = "upgrade_background",
         type = "Picture",
@@ -1989,24 +3561,13 @@ local gameUi = {
         font_color = "255 215 0",
         visible = true
     }
-}
+}]]
 function initUi()
     for i = 1, #gameUi do
         GUI.UI(gameUi[i])
     end
 end
 
-function openSafeHouseUI()
-    for i = 1, #gameUi do
-        gameUi[i].visible = true
-    end
-end
-
-function closeSafeHouseUI()
-    for i = 1, #gameUi do
-        gameUi[i].visible = false
-    end
-end
 
 function getUi(name)
     for i = 1, #gameUi do
@@ -2056,6 +3617,8 @@ function GamePlayerProperty:destruction()
     self:safeWrite("mAttackValueLevel")
     self:safeWrite("mAttackTimeLevel")
     self:safeWrite("mConfigIndex")
+    self:safeWrite("mMoney")
+    self:safeWrite("mKill")
 end
 
 function GamePlayerProperty:_getLockKey(propertyName)
@@ -2075,6 +3638,27 @@ end
 function GameMonsterProperty:_getLockKey(propertyName)
     return "GameMonsterProperty/" .. tostring(self.mEntityID) .. "/" .. propertyName
 end
+-----------------------------------------------------------------------------------------GameMonsterManagerProperty-----------------------------------------------------------------------------------
+function GameMonsterManagerProperty:construction(parameter)
+end
+
+function GameMonsterManagerProperty:destruction()
+    self:safeWrite("mMonsterCount")
+end
+
+function GameMonsterManagerProperty:_getLockKey(propertyName)
+    return "GameMonsterProperty/" .. propertyName
+end
+-----------------------------------------------------------------------------------------GameProperty-----------------------------------------------------------------------------------
+function GameProperty:construction(parameter)
+end
+
+function GameProperty:destruction()
+end
+
+function GameProperty:_getLockKey(propertyName)
+    return "GameProperty/" .. propertyName
+end
 -----------------------------------------------------------------------------------------Host_Game-----------------------------------------------------------------------------------
 function Host_Game.singleton()
     return Host_Game.msInstance
@@ -2083,7 +3667,7 @@ end
 function Host_Game:construction()
     Host_Game.msInstance = self
     self.mCommandQueue = new(CommandQueue)
-
+    self.mProperty = new(GameProperty)
     self.mSafeHouse = {}
     local x, y, z = GetHomePosition()
     x, y, z = ConvertToBlockIndex(x, y + 0.5, z)
@@ -2160,7 +3744,7 @@ function Host_Game:setScene(scene, callback)
 end
 
 function Host_Game:start()
-    self.mLevel = 1
+    self.mProperty:safeWrite("mLevel",1)
     self.mPlayerManager:initializePlayerProperties()
     self:setScene(
         nil,
@@ -2168,6 +3752,10 @@ function Host_Game:start()
             self:_nextMatch()
         end
     )
+end
+
+function Host_Game:getProperty()
+    return self.mProperty
 end
 
 function Host_Game:_nextMatch()
@@ -2236,7 +3824,7 @@ function Host_Game:_nextMatch()
                                                                     command.mState = Command.EState.Finish
                                                                     self:setScene(nil,
                                                                         function()
-                                                                            self.mLevel = self.mLevel + 1
+                                                                            self.mProperty:safeWrite("mLevel",self.mProperty:cache().mLevel + 1)
                                                                             self:_nextMatch()
                                                                         end
                                                                     )
@@ -2260,10 +3848,10 @@ function Host_Game:_nextMatch()
 end
 
 function Host_Game:_startMatch(callback)
-    local scene = {mLevel = self.mLevel}
+    local scene = {mLevel = self.mProperty:cache().mLevel}
     local terrains = {}
     for _, terrain in pairs(GameConfig.mTerrainLibrary) do
-        if not terrain.mLevel or terrain.mLevel == self.mLevel then
+        if not terrain.mLevel or terrain.mLevel == self.mProperty:cache().mLevel then
             terrains[#terrains + 1] = terrain
         end
     end
@@ -2397,13 +3985,13 @@ end
 -----------------------------------------------------------------------------------------Host_GameMonsterManager-----------------------------------------------------------------------------------
 function Host_GameMonsterManager:construction()
     self.mMonsters = {}
-
+    self.mProperty = new(GameMonsterManagerProperty)
     Host.addListener("GameMonsterManager", self)
 end
 
 function Host_GameMonsterManager:destruction()
     self:reset()
-
+    delete(self.mProperty)
     Host.removeListener("GameMonsterManager", self)
 end
 
@@ -2430,6 +4018,7 @@ function Host_GameMonsterManager:setScene(scene)
                     GameCompute.computeMonsterGenerateCountScale(Host_Game.singleton():getPlayerManager().mPlayers)
             }
         )
+        self.mProperty:safeWrite("mMonsterCount",self.mMonsterGenerator.mGenerateCount)
     else
         delete(self.mMonsterGenerator)
         self.mMonsterGenerator = nil
@@ -2462,6 +4051,10 @@ function Host_GameMonsterManager:isAllDead()
     return true
 end
 
+function Host_GameMonsterManager:getProperty()
+    return self.mProperty
+end
+
 function Host_GameMonsterManager:_createMonster(parameter)
     local ret =
         new(
@@ -2469,7 +4062,7 @@ function Host_GameMonsterManager:_createMonster(parameter)
         {
             mConfigIndex = parameter.mConfigIndex,
             mPosition = parameter.mPosition,
-            mLevel = Host_Game.singleton().mLevel
+            mLevel = Host_Game.singleton():getProperty():cache().mLevel
         }
     )
     self.mMonsters[#self.mMonsters + 1] = ret
@@ -2605,6 +4198,7 @@ function Host_GamePlayer:construction(parameter)
     self.mConfigIndex = parameter.mConfigIndex
 
     self.mProperty:safeWrite("mConfigIndex", self.mConfigIndex)
+    self.mProperty:safeWrite("mKill",0)
     self.mProperty:addPropertyListener(
         "mHPLevel",
         self,
@@ -2626,7 +4220,12 @@ function Host_GamePlayer:construction(parameter)
         function(_, value)
         end
     )
-
+    self.mProperty:addPropertyListener(
+        "mMoney",
+        self,
+        function(_, value)
+        end
+    )
     Host.addListener(self:_getSendKey(), self)
 end
 
@@ -2842,10 +4441,10 @@ function Host_GameMonster:_propertyChange(playerID, change)
         self.mProperty:safeWrite("mHP", self.mProperty:cache().mHP - sub_stract)
     end
 
-    self:_checkDead()
+    self:_checkDead(playerID)
 end
 
-function Host_GameMonster:_checkDead()
+function Host_GameMonster:_checkDead(lastHitPlayerID)
     if self.mProperty:cache().mHP <= 0 then
         if self.mEntity then
             self.mEntity:SetDead(true)
@@ -2862,6 +4461,8 @@ function Host_GameMonster:_checkDead()
             end
             self.mDamaged = nil
         end
+        local player = Host_Game.singleton():getPlayerManager():getPlayerByID(lastHitPlayerID)
+        player:getProperty():safeWrite("mKill",player:getProperty():cache().mKill + 1)
     end
 end
 
@@ -2915,13 +4516,19 @@ function Client_Game.singleton()
 end
 
 function Client_Game:construction()
+    self.mProperty = new(GameProperty)
     self.mPlayerManager = new(Client_GamePlayerManager)
     self.mMonsterManager = new(Client_GameMonsterManager)
+
+    self.mProperty:addPropertyListener("mLevel",self,function(_,value)
+    end)
 end
 
 function Client_Game:destruction()
     delete(self.mMonsterManager)
     delete(self.mPlayerManager)
+    self.mProperty:removePropertyListener("mLevel")
+    delete(self.mProperty)
     Client_Game.msInstance = nil
 end
 
@@ -2935,12 +4542,20 @@ function Client_Game:onHit(weapon, result)
     self.mMonsterManager:onHit(weapon, result)
 end
 
+function Client_Game:switchLevel(level)
+
+end
+
 function Client_Game:getPlayerManager()
     return self.mPlayerManager
 end
 
 function Client_Game:getMonsterManager()
     return self.mMonsterManager
+end
+
+function Client_Game:getProperty()
+    return self.mProperty
 end
 -----------------------------------------------------------------------------------------Client_GamePlayerManager-----------------------------------------------------------------------------------
 function Client_GamePlayerManager:construction()
@@ -3018,12 +4633,17 @@ end
 -----------------------------------------------------------------------------------------Client_GameMonsterManager-----------------------------------------------------------------------------------
 function Client_GameMonsterManager:construction()
     self.mMonsters = {}
+    self.mProperty = new(GameMonsterManagerProperty)
 
+    self.mProperty:addPropertyListener("mMonsterCount",self,function(_,value)
+    end)
     Client.addListener("GameMonsterManager", self)
 end
 
 function Client_GameMonsterManager:destruction()
     self:reset()
+    self.mProperty:removePropertyListener("mMonsterCount")
+    delete(self.mProperty)
     Client.removeListener("GameMonsterManager", self)
 end
 
@@ -3067,6 +4687,10 @@ function Client_GameMonsterManager:onHit(weapon, result)
     end
 end
 
+function Client_GameMonsterManager:getProperty()
+    return self.mProperty
+end
+
 function Client_GameMonsterManager:_createMonster(entityID)
     local ret = new(Client_GameMonster, {mEntityID = entityID})
     self.mMonsters[#self.mMonsters + 1] = ret
@@ -3095,6 +4719,7 @@ function Client_GamePlayer:construction(parameter)
         self.mProperty:safeWrite("mHPLevel", saved_data.mHPLevel)
         self.mProperty:safeWrite("mAttackValueLevel", saved_data.mAttackValueLevel)
         self.mProperty:safeWrite("mAttackTimeLevel", saved_data.mAttackTimeLevel)
+        self.mProperty:safeWrite("mMoney",saved_data.mMoney)
 
         self:_equpGun()
         -- 显示枪里子弹数量
@@ -3143,15 +4768,27 @@ function Client_GamePlayer:construction(parameter)
             end
         end
     )
-        self.mProperty:addPropertyListener(
-            "mHP",
-            self,
-            function(_, value)
-                if value then
-                    self:_updateBloodUI()
-                end
+    self.mProperty:addPropertyListener(
+        "mHP",
+        self,
+        function(_, value)
+            if value then
+                self:_updateBloodUI()
             end
-        )
+        end
+    )
+    self.mProperty:addPropertyListener(
+        "mMoney",
+        self,
+        function(_, value)
+        end
+    )
+    self.mProperty:addPropertyListener(
+        "mKill",
+        self,
+        function(_, value)
+        end
+    )
 
     Client.addListener(self:_getSendKey(), self)
 end
@@ -3161,6 +4798,7 @@ function Client_GamePlayer:destruction()
     self.mProperty:removePropertyListener("mAttackValueLevel", self)
     self.mProperty:removePropertyListener("mAttackTimeLevel", self)
     self.mProperty:removePropertyListener("mHP", self)
+    self.mProperty:removePropertyListener("mMoney", self)
     delete(self.mProperty)
     if self.mBloodUI then
         self.mBloodUI:destroy()
@@ -3187,6 +4825,11 @@ function Client_GamePlayer:update()
                 self.mProperty:safeWrite("mAttackTimeLevel", saved_data.mAttackTimeLevel)
             end
         end
+        if self.mProperty:cache().mMoney then
+            if saved_data.mMoney ~= self.mProperty:cache().mMoney then
+                self.mProperty:safeWrite("mMoney", saved_data.mMoney)
+            end
+        end
         if WeaponSystem.get(1) and WeaponSystem.get(1):getAmmoCount() == 0 then
             Tip("按R键重装子弹")
         end
@@ -3207,12 +4850,17 @@ function Client_GamePlayer:receive(parameter)
         elseif parameter.mMessage == "AddMoney" then
             local saved_data = getSavedData()
             saved_data.mMoney = saved_data.mMoney + parameter.mParameter.mMoney
+            self.mProperty:safeWrite("mMoney",saved_data.mMoney)
         elseif parameter.mMessage == "EnterSafeHouse" then
             SetCameraMode(2)
-            openSafeHouseUI()
+            setUiValue("upgrade_background", "visible", true)
+            setUiValue("chooseLevel_background", "visible", true)
+            setUiValue("levelInfo_background", "visible", false)
         elseif parameter.mMessage == "LeaveSafeHouse" then
             SetCameraMode(3)
-            closeSafeHouseUI()
+            setUiValue("upgrade_background", "visible", false)
+            setUiValue("chooseLevel_background", "visible", false)
+            setUiValue("levelInfo_background", "visible", true)
         end
     end
 end
