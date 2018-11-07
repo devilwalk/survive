@@ -112,7 +112,7 @@ local function restoreBlock(x, y, z)
         SetBlock(x, y, z, gOriginBlockIDs[key])
     end
 end
-local SavedData = {}
+local SavedData = {mMoney = 10000000000}
 local function getSavedData()
     return GetSavedData() or SavedData
 end
@@ -124,6 +124,8 @@ local Property = {}
 local PropertyGroup = {}
 local EntitySyncer = {}
 local EntitySyncerManager = {}
+local EntityCustom = {}
+local EntityCustomManager = {}
 local Host = {}
 local Client = {}
 local GlobalProperty = {}
@@ -223,6 +225,13 @@ function Command_Callback:finish()
     end
 end
 -----------------------------------------------------------------------------------------CommandQueue-----------------------------------------------------------------------------------
+function CommandQueue.default()
+    if not CommandQueue.msDefault then
+        CommandQueue.msDefault = new(CommandQueue)
+    end
+    return CommandQueue.msDefault
+end
+
 function CommandQueue:construction()
     self.mCommands = {}
 end
@@ -544,12 +553,12 @@ function PropertyGroup:commandFinish(callback)
 end
 -----------------------------------------------------------------------------------------Entity Syncer----------------------------------------------------------------------------------------
 function EntitySyncer:construction(parameter)
+    self.mCommandQueue = new(CommandQueue)
     if parameter.mEntityID then
         self.mEntityID = parameter.mEntityID
-    else
+    elseif parameter.mEntity then
         self.mEntityID = parameter.mEntity.entityId
     end
-    self.mCommandQueue = new(CommandQueue)
 end
 
 function EntitySyncer:destruction()
@@ -651,6 +660,101 @@ end
 
 function EntitySyncerManager:getByEntityID(entityID)
     return self.mEntities[entityID]
+end
+-----------------------------------------------------------------------------------------EntityCustom-----------------------------------------------------------------------------------------
+function EntityCustom:construction(parameter)
+    self.mEntity = CreateEntity(parameter.mX,parameter.mY,parameter.mZ,parameter.mModel)
+
+    Client.addListener("EntityCustom",self)
+end
+
+function EntityCustom:destruction()
+    self.mEntity:SetDead(true)
+
+    Client.removeListener("EntityCustom",self)
+end
+
+function EntityCustom:broadcast(message,parameter,exceptSelf)
+    Host.broadcast({mKey = "EntityCustom", mMessage = message, mParameter = parameter},exceptSelf)
+end
+
+function EntityCustom:receive(parameter)
+    if parameter.mMessage == "SetPositionReal" then
+        self:_setPositionReal(parameter.mParameter.mX,parameter.mParameter.mY,parameter.mParameter.mZ)
+    end
+end
+
+function EntityCustom:setPositionReal(x,y,z)
+    self:broadcast("SetPositionReal",{mX = x,mY = y,mZ = z})
+end
+
+function EntityCustom:_setPositionReal(x,y,z)
+    self.mEntity:SetPosition(x,y,z)
+end
+-----------------------------------------------------------------------------------------EntityCustomManager-----------------------------------------------------------------------------------------
+function EntityCustomManager.singleton()
+    if not EntityCustomManager.msInstance then
+        EntityCustomManager.msInstance = new(EntityCustomManager)
+    end
+    return EntityCustomManager.msInstance
+end
+
+function EntityCustomManager:construction()
+    self.mEntities = {}
+    self.mNextEntityKey = 1
+
+    Client.addListener("EntityCustomManager",self)
+end
+
+function EntityCustomManager:destruction()
+    for _,entity in pairs(self.mEntities) do
+        delete(entity)
+    end
+
+    Client.removeListener("EntityCustomManager",self)
+end
+
+function EntityCustomManager:receive(parameter)
+    if parameter.mMessage == "CreateEntity" then
+        self:_createEntity(parameter.mParameter.mX,parameter.mParameter.mY,parameter.mParameter.mZ,parameter.mParameter.mModel,parameter.mParameter.mHostKey)
+    elseif parameter.mMessage == "DestroyEntity" then
+        self:_destroyEntity(parameter.mParameter.mHostKey)
+    end
+end
+
+function EntityCustomManager:broadcast(message,parameter,exceptSelf)
+    Host.broadcast({mKey = "EntityCustomManager", mMessage = message, mParameter = parameter},exceptSelf)
+end
+
+function EntityCustomManager:createEntity(x,y,z,path)
+    local host_key = self:_generateNextEntityKey()
+    self:broadcast("CreateEntity",{mX=x,mY=y,mZ=z,mModel=path,mHostKey = host_key})
+    return host_key
+end
+
+function EntityCustomManager:getEntity(hostKey)
+    return self.mEntities[hostKey]
+end
+
+function EntityCustomManager:destroyEntity(hostKey)
+    self:broadcast("DestroyEntity",{mHostKey = hostKey})
+end
+
+function EntityCustomManager:_createEntity(x,y,z,path,hostKey)
+    local ret = new(EntityCustom,{mX = x,mY = y,mZ = z,mModel = path})
+    self.mEntities[hostKey] = ret
+    return ret
+end
+
+function EntityCustomManager:_destroyEntity(hostKey)
+    delete(self.mEntities[hostKey])
+    self.mEntities[hostKey] = nil
+end
+
+function EntityCustomManager:_generateNextEntityKey()
+    local ret = self.mNextEntityKey
+    self.mNextEntityKey = self.mNextEntityKey + 1
+    return ret
 end
 -----------------------------------------------------------------------------------------Host-----------------------------------------------------------------------------------------
 function Host.addListener(key, listener)
@@ -1614,6 +1718,18 @@ local gameUi = {
             if getSavedData().mMoney >= money then
                 getSavedData().mMoney = getSavedData().mMoney - money
                 getSavedData().mHPLevel = getSavedData().mHPLevel + 1
+                local x,y,z = GetPlayer():GetBlockPos()
+                local host_key = EntityCustomManager.singleton():createEntity(x,y,z,"character/v5/09effect/Upgrade/Upgrade_CirqueGlowRed.x")
+                CommandQueue.default():post(new(Command_Callback,{mDebug = "Command_Callback/UpdateHP",mExecutingCallback = function(command)
+                    command.mTimer = command.mTimer or new(Timer)
+                    local x,y,z = GetPlayer():GetPosition()
+                    EntityCustomManager.singleton():getEntity(host_key):setPositionReal(x,y,z)
+                    if command.mTimer:total() > 0.8 then
+                        delete(command.mTimer)
+                        EntityCustomManager.singleton():destroyEntity(host_key)
+                        command.mState = Command.EState.Finish
+                    end
+                end}))
             end
         end,
         font_bold = true,
@@ -1700,6 +1816,18 @@ local gameUi = {
             if getSavedData().mMoney >= money then
                 getSavedData().mMoney = getSavedData().mMoney - money
                 getSavedData().mAttackValueLevel = getSavedData().mAttackValueLevel + 1
+                local x,y,z = GetPlayer():GetBlockPos()
+                local host_key = EntityCustomManager.singleton():createEntity(x,y,z,"character/v5/09effect/Upgrade/Upgrade_CirqueGlowRed.x")
+                CommandQueue.default():post(new(Command_Callback,{mDebug = "Command_Callback/UpdateAttackValue",mExecutingCallback = function(command)
+                    command.mTimer = command.mTimer or new(Timer)
+                    local x,y,z = GetPlayer():GetPosition()
+                    EntityCustomManager.singleton():getEntity(host_key):setPositionReal(x,y,z)
+                    if command.mTimer:total() > 0.8 then
+                        delete(command.mTimer)
+                        EntityCustomManager.singleton():destroyEntity(host_key)
+                        command.mState = Command.EState.Finish
+                    end
+                end}))
             end
         end,
         font_bold = true,
@@ -1786,6 +1914,18 @@ local gameUi = {
             if getSavedData().mMoney >= money then
                 getSavedData().mMoney = getSavedData().mMoney - money
                 getSavedData().mAttackTimeLevel = getSavedData().mAttackTimeLevel + 1
+                local x,y,z = GetPlayer():GetBlockPos()
+                local host_key = EntityCustomManager.singleton():createEntity(x,y,z,"character/v5/09effect/Upgrade/Upgrade_CirqueGlowRed.x")
+                CommandQueue.default():post(new(Command_Callback,{mDebug = "Command_Callback/UpdateAttackTime",mExecutingCallback = function(command)
+                    command.mTimer = command.mTimer or new(Timer)
+                    local x,y,z = GetPlayer():GetPosition()
+                    EntityCustomManager.singleton():getEntity(host_key):setPositionReal(x,y,z)
+                    if command.mTimer:total() > 0.8 then
+                        delete(command.mTimer)
+                        EntityCustomManager.singleton():destroyEntity(host_key)
+                        command.mState = Command.EState.Finish
+                    end
+                end}))
             end
         end,
         font_bold = true,
@@ -2187,6 +2327,7 @@ function Host_GamePlayerManager:reset()
 end
 
 function Host_GamePlayerManager:getPlayerByID(playerID)
+    playerID = playerID or GetPlayerId()
     for _, player in pairs(self.mPlayers) do
         if player:getID() == playerID then
             return player
@@ -2790,6 +2931,7 @@ function Client_Game:update(deltaTime)
 end
 
 function Client_Game:onHit(weapon, result)
+    self.mPlayerManager:onHit(weapon, result)
     self.mMonsterManager:onHit(weapon, result)
 end
 
@@ -2844,10 +2986,17 @@ function Client_GamePlayerManager:sendToHost(message, parameter)
 end
 
 function Client_GamePlayerManager:getPlayerByID(playerID)
+    playerID = playerID or GetPlayerId()
     for _, player in pairs(self.mPlayers) do
         if player:getID() == playerID then
             return player
         end
+    end
+end
+
+function Client_GamePlayerManager:onHit(weapon, result)
+    for _, player in pairs(self.mPlayers) do
+        player:onHit(weapon, result)
     end
 end
 
@@ -3072,6 +3221,34 @@ function Client_GamePlayer:sendToHost(message, parameter)
     Client.sendToHost(self:_getSendKey(), {mMessage = message, mParameter = parameter})
 end
 
+function Client_GamePlayer:onHit(weapon, result)
+    if self.mPlayerID==GetPlayerId() then
+        local x,y,z = GetPlayer():GetBlockPos()
+        GetResourceModel({hash="FrwJ2e5GdVX8aMghRov5waetE7WV",pid="278",ext="bmax",},function(path,err)
+            local host_key = EntityCustomManager.singleton():createEntity(x,y + 1,z,path)
+            local entity = EntityCustomManager.singleton():getEntity(host_key)
+            CommandQueue.default():post(new(Command_Callback,{mDebug = "Client_GamePlayer:onHit",mExecutingCallback = function(command)
+                if result.entity then
+                    local dir = (result.entity:getPosition() - entity.mEntity:getPosition()):normalize()
+                    local pos = entity.mEntity:getPosition() + dir
+                    entity:setPositionReal(pos[1],pos[2],pos[3])
+                elseif result.blockX and result.blockY and result.blockZ then
+                    local x,y,z = entity.mEntity:GetBlockPos()
+                    local dir = vector3d:new(result.blockX - x,result.blockY - y + 1,result.blockZ - z):normalize()
+                    local pos = entity.mEntity:getPosition() + dir
+                    entity:setPositionReal(pos[1],pos[2],pos[3])
+                end
+                command.mTimer = command.mTimer or new(Timer)
+                if command.mTimer:total() > 1 then
+                    delete(command.mTimer)
+                    EntityCustomManager.singleton():destroyEntity(host_key)
+                    command.mState = Command.EState.Finish
+                end
+            end}))
+        end)
+    end
+end
+
 function Client_GamePlayer:getID()
     return self.mPlayerID
 end
@@ -3280,6 +3457,7 @@ function main()
     Revive()
     GlobalProperty.initialize()
     PlayerManager.initialize()
+    EntityCustomManager.singleton()
     SendTo("host", {mMessage = "CheckHost"})
 end
 
@@ -3297,6 +3475,7 @@ function clear()
         Host.broadcast({mMessage = "Clear"})
     end
     PlayerManager.clear()
+    delete(CommandQueue.default())
 end
 
 -- 获取输入
@@ -3350,6 +3529,7 @@ end
 
 function update()
     GlobalProperty.update()
+    CommandQueue.default():update()
     local delta_time = Timer.global():delta()
     PlayerManager.update()
     if Host_Game.singleton() then
