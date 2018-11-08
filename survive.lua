@@ -1040,6 +1040,7 @@ function EntityCustomManager:_createTrackEntity(tracks)
     for i,track in pairs(tracks) do
         local x,y,z=ConvertToBlockIndex(track.mSrcPosition[1],track.mSrcPosition[2],track.mSrcPosition[3])
         local entity = self:_createEntity(x,y,z,track.mModel,nil,track.mModelScaling)
+        entity.mEntity:SetPosition(track.mSrcPosition[1],track.mSrcPosition[2],track.mSrcPosition[3])
         self:_createEntityTrack(entity,track,command_queue)
         command_queue:post(new(Command_Callback,{mDebug = "EntityCustomManager:_createTrackEntity/PostProcess/"..tostring(i),mExecuteCallback = function(command)
             self:_destroyEntity(entity)
@@ -5277,7 +5278,7 @@ end
 function Client_GamePlayer:onHit(weapon, result)
     if self.mPlayerID == GetPlayerId() then
         local x, y, z = GetPlayer():GetBlockPos()
-        local src_position = GetPlayer():getPosition() + vector3d:new(0,0.5,0)
+        local src_position = GetPlayer():getPosition() + vector3d:new(0,0.5,0) + vector3d:new(GetEntityDirection(self.mPlayerID)) * 0.5
         local target_position
         local track_bullet = {mType = "Ray",mTime = 1,mSpeed = 100,mSrcPosition = src_position}
         if result.entity then
