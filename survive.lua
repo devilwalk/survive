@@ -1713,6 +1713,7 @@ local GamePlayerProperty = inherit(Property)
 local GameMonsterProperty = inherit(Property)
 local GameMonsterManagerProperty = inherit(Property)
 local GameProperty = inherit(Property)
+local GameEffectManager = {}
 local Host_Game = {}
 local Host_GamePlayerManager = {}
 local Host_GameMonsterManager = {}
@@ -1720,11 +1721,13 @@ local Host_GameTerrain = {}
 local Host_GameMonsterGenerator = {}
 local Host_GamePlayer = {}
 local Host_GameMonster = {}
+local Host_GameEffectManager = {}
 local Client_Game = {}
 local Client_GamePlayerManager = {}
 local Client_GameMonsterManager = {}
 local Client_GamePlayer = {}
 local Client_GameMonster = {}
+local Client_GameEffectManager = {}
 -----------------------------------------------------------------------------------------GameConfig-----------------------------------------------------------------------------------
 GameConfig.mMonsterPointBlockID = 2101
 GameConfig.mHomePointBlockID = 2102
@@ -3980,6 +3983,24 @@ end
 
 function GameProperty:_getLockKey(propertyName)
     return "GameProperty/" .. propertyName
+end
+-----------------------------------------------------------------------------------------GameEffectManager-----------------------------------------------------------------------------------
+function GameEffectManager:construction()
+end
+
+function GameEffectManager:destruction()
+end
+
+function GameEffectManager:createMonsterDead()
+    scene = GetParticleSystem().createScene("MonsterDead", x, y, z)
+    scene:setParticleQuota(1000)
+    scene:setDefaultDimensions(1,1)
+    scene:setTexture(CreateItemStack(55):GetIcon())
+    local emitter = scene:addEmitter("Point")
+    emitter:setParticleDirection(1,0,0)
+    emitter:setEmissionRate(1)
+    emitter:setParticleVelocity(1, 1)
+    emitter:setParticleTimeToLive(10, 10)
 end
 -----------------------------------------------------------------------------------------Host_Game-----------------------------------------------------------------------------------
 function Host_Game.singleton()
