@@ -1786,7 +1786,7 @@ GameConfig.mPlayers = {
 }
 GameConfig.mPrepareTime = 15
 GameConfig.mBullet = {mModelResource = {hash = "FrwJ2e5GdVX8aMghRov5waetE7WV", pid = "278", ext = "bmax"}}
-GameConfig.mHitEffect = {mModel = "character/v5/09effect/Rag_FireNova_Area.x",mModelScaling = 0.01}
+GameConfig.mHitEffect = {mModel = "character/v5/09effect/ceshi/fire/2/OnHit.x",mModelScaling = 0.7}
 -----------------------------------------------------------------------------------------GameCompute-----------------------------------------------------------------------------------
 function GameCompute.computePlayerHP(level)
     return 7 / GameCompute.computeMonsterAttackTime() * GameCompute.computeMonsterAttackValue(level)
@@ -5277,11 +5277,11 @@ end
 function Client_GamePlayer:onHit(weapon, result)
     if self.mPlayerID == GetPlayerId() then
         local x, y, z = GetPlayer():GetBlockPos()
-        local src_position = GetPlayer():getPosition() + vector3d:new(0,1,0)
+        local src_position = GetPlayer():getPosition() + vector3d:new(0,0.5,0)
         local target_position
         local track_bullet = {mType = "Ray",mTime = 1,mSpeed = 100,mSrcPosition = src_position}
         if result.entity then
-            target_position = result.entity:getPosition()
+            target_position = result.entity:getPosition() + vector3d:new(0,0.1,0)
         elseif result.blockX and result.blockY and result.blockZ then
             target_position = {}
             target_position[1],target_position[2],target_position[3] = ConvertToRealPosition(result.blockX,result.blockY,result.blockZ)
@@ -5290,7 +5290,7 @@ function Client_GamePlayer:onHit(weapon, result)
         local length = dir:length()
         track_bullet.mTime = length / track_bullet.mSpeed
         track_bullet.mDirection = dir:normalize()
-        local track_hit = {mType = "Point",mTime = 1,mSrcPosition = target_position,mModel = GameConfig.mHitEffect.mModel,mModelScaling = GameConfig.mHitEffect.mModelScaling}
+        local track_hit = {mType = "Point",mTime = 0.1,mSrcPosition = target_position - track_bullet.mDirection,mModel = GameConfig.mHitEffect.mModel,mModelScaling = GameConfig.mHitEffect.mModelScaling}
         local function create_track_entity()
             if track_bullet.mModel and track_hit.mModel then
                 EntityCustomManager.singleton():createTrackEntity({track_bullet,track_hit})
