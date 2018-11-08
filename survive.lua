@@ -758,6 +758,8 @@ end
 -----------------------------------------------------------------------------------------EntityCustom-----------------------------------------------------------------------------------------
 function EntityCustom:construction(parameter)
     self.mEntity = CreateEntity(parameter.mX, parameter.mY, parameter.mZ, parameter.mModel)
+    self.mClientKey = parameter.mClientKey
+    self.mHostKey = parameter.mHostKey
 
     Host.addListener("EntityCustom", self)
     Client.addListener("EntityCustom", self)
@@ -824,7 +826,8 @@ end
 
 function EntityCustomManager:construction()
     self.mEntities = {}
-    self.mNextEntityKey = 1
+    self.mNextEntityHostKey = 1
+    self.mNextEntityClientKey = 1
     self.mCommandQueue = CommandQueueManager.singleton():createQueue()
 
     Host.addListener("EntityCustomManager", self)
@@ -850,7 +853,8 @@ function EntityCustomManager:receive(parameter)
         end
     else
         if parameter.mMessage == "CreateEntityHost" then
-            local host_key = self:_generateNextEntityKey()
+            local host_key = self:_generateNextEntityHostKey()
+            self:hostSendToClient(parameter.mFrom, "CreateEntityHost_Response", {mHostKey = host_key})
             self:broadcast(
                 "CreateEntity",
                 {
@@ -858,22 +862,26 @@ function EntityCustomManager:receive(parameter)
                     mY = parameter.mParameter.mY,
                     mZ = parameter.mParameter.mZ,
                     mModel = parameter.mParameter.mModel,
-                    mHostKey = host_key
+                    mHostKey = host_key,
+                    mPlayerID = parameter.mParameter.mPlayerID
                 }
             )
-            self:hostSendToClient(parameter.mFrom, "CreateEntityHost_Response", {mHostKey = host_key})
         elseif parameter.mMessage == "CreateEntity" then
-            self:_createEntity(
-                parameter.mParameter.mX,
-                parameter.mParameter.mY,
-                parameter.mParameter.mZ,
-                parameter.mParameter.mModel,
-                parameter.mParameter.mHostKey
-            )
+            if parameter.mParameter.mPlayerID ~= GetPlayerId() then
+                self:_createEntity(
+                    parameter.mParameter.mX,
+                    parameter.mParameter.mY,
+                    parameter.mParameter.mZ,
+                    parameter.mParameter.mModel,
+                    parameter.mParameter.mHostKey
+                )
+            end
         elseif parameter.mMessage == "DestroyEntity" then
             self:_destroyEntity(parameter.mParameter.mHostKey)
-        elseif parameter.mMessage == "CreateEntityTrack" then
-            self:_createEntityTrack(parameter.mParameter.mEntityHostKey, parameter.mParameter.mTrack)
+        elseif parameter.mMessage == "CreateTrackEntity" then
+            if parameter.mParameter.mPlayerID ~= GetPlayerId() then
+                self:_createTrackEntity(parameter.mParameter.mTracks)
+            end
         end
     end
 end
@@ -900,78 +908,148 @@ function EntityCustomManager:broadcast(message, parameter)
     Client.broadcast("EntityCustomManager", {mMessage = message, mParameter = parameter})
 end
 
-function EntityCustomManager:createEntity(x, y, z, path, callback)
+function EntityCustomManager:createEntity(x, y, z, model, callback)
+    local entity = self:_createEntity(x,y,z,model)
+    local client_key = entity.mClientKey
+    self.mFakeEntities = self.mFakeEntities or {}
+    self.mFakeEntities[client_key]={mClientKey = client_key}
     self:requestToHost(
         "CreateEntityHost",
-        {mX = x, mY = y, mZ = z, mModel = path},
+        {mX = x, mY = y, mZ = z, mModel = model,mPlayerID = GetPlayerId()},
         function(parameter)
-            callback(parameter.mHostKey)
+            local entity = self:getEntityByClientKey(client_key)
+            if entity then
+                entity.mHostKey = parameter.mHostKey
+                self.mFakeEntities[client_key] = nil
+            else
+                self.mFakeEntities[client_key].mHostKey = parameter.mHostKey
+            end
+            callback(entity.mHostKey)
         end
+    )
+    return client_key
+end
+
+function EntityCustomManager:getEntityByHostKey(hostKey)
+    for _,entity in pairs(self.mEntities) do
+        if entity.mHostKey == hostKey then
+            return entity
+        end
+    end
+end
+
+function EntityCustomManager:getEntityByClientKey(clientKey)
+    for _,entity in pairs(self.mEntities) do
+        if entity.mClientKey == clientKey then
+            return entity
+        end
+    end
+end
+
+function EntityCustomManager:destroyEntity(clientKey)
+    local entity = self:getEntityByClientKey(clientKey)
+    local host_key = entity.mHostKey
+    local client_key = entity.mClientKey
+    self:_destroyEntity(entity)
+    if host_key then
+        self:broadcast("DestroyEntity", {mHostKey = host_key})
+    else
+        CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "EntityCustomManager:createEntityTrack",mExecutingCallback = function(command)
+            local fake_entity = self.mFakeEntities[client_key]
+            if fake_entity and fake_entity.mHostKey then
+                self:broadcast("DestroyEntity", {mHostKey = fake_entity.mHostKey})
+                self.mFakeEntities[client_key] = nil
+                command.mState = Command.EState.Finish
+            end
+        end}))
+    end
+end
+
+function EntityCustomManager:createTrackEntity(tracks)
+    self:_createTrackEntity(tracks)
+    self:broadcast(
+        "CreateTrackEntityHost",
+        {mTracks = tracks,mPlayerID = GetPlayerId()}
     )
 end
 
-function EntityCustomManager:getEntity(hostKey)
-    return self.mEntities[hostKey]
-end
-
-function EntityCustomManager:destroyEntity(hostKey)
-    self:broadcast("DestroyEntity", {mHostKey = hostKey})
-end
-
-function EntityCustomManager:createEntityTrack(entityHostKey, track)
-    self:broadcast("CreateEntityTrack", {mEntityHostKey = entityHostKey, mTrack = track})
-end
-
-function EntityCustomManager:_createEntity(x, y, z, path, hostKey)
-    local ret = new(EntityCustom, {mX = x, mY = y, mZ = z, mModel = path})
-    self.mEntities[hostKey] = ret
+function EntityCustomManager:_createEntity(x, y, z, path, hostKey, modelScaling)
+    local ret = new(EntityCustom, {mX = x, mY = y, mZ = z, mModel = path, mClientKey = self:_generateNextEntityClientKey(), mHostKey = hostKey})
+    ret.mEntity:SetScaling(modelScaling or 1)
+    self.mEntities[#self.mEntities+1] = ret
     return ret
 end
 
-function EntityCustomManager:_destroyEntity(hostKey)
-    delete(self.mEntities[hostKey])
-    self.mEntities[hostKey] = nil
+function EntityCustomManager:_destroyEntity(entity)
+    for i,test in pairs(self.mEntities) do
+        if test == entity then
+            delete(entity)
+            table.remove(self.mEntities,i)
+            break
+        end
+    end
 end
 
-function EntityCustomManager:_generateNextEntityKey()
-    local ret = self.mNextEntityKey
-    self.mNextEntityKey = self.mNextEntityKey + 1
+function EntityCustomManager:_generateNextEntityHostKey()
+    local ret = self.mNextEntityHostKey
+    self.mNextEntityHostKey = self.mNextEntityHostKey + 1
     return ret
 end
 
-function EntityCustomManager:_createEntityTrack(hostKey, track)
-    CommandQueueManager.singleton():post(
+function EntityCustomManager:_generateNextEntityClientKey()
+    local ret = self.mNextEntityClientKey
+    self.mNextEntityClientKey = self.mNextEntityClientKey + 1
+    return ret
+end
+
+function EntityCustomManager:_createEntityTrack(entity, track, commandQueue)
+    (commandQueue or CommandQueueManager.singleton()):post(
         new(
             Command_Callback,
             {
-                mDebug = "EntityTrack/" .. tostring(hostKey),
+                mDebug = "EntityTrack/" .. tostring(entity.mClientKey),
                 mExecutingCallback = function(command)
-                    command.mTimer = command.mTimer or new(Timer)
-                    local entity = self:getEntity(hostKey)
-                    echo(
-                        "devilwalk",
-                        "-------------------------------------------------------------------------------------------------------"
-                    )
-                    if not entity then
-                        command.mState = Command.EState.Finish
-                        return
-                    end
                     if track.mType == "Ray" then
-                        local src_position = track.mSrcPosition or entity:getPosition()
+                        command.mTimer = command.mTimer or new(Timer)
+                        if command.mTimer:total() > track.mTime then
+                            command.mState = Command.EState.Finish
+                        end
+                        local src_position = track.mSrcPosition or entity.mEntity:getPosition()
                         command.mNextPosition =
                             vector3d:new(src_position[1], src_position[2], src_position[3]) +
-                            vector3d:new(track.mDirection[1], track.mDirection[2], track.mDirection[3]) * track.mSpeed *
-                                command.mTimer:total()
+                            vector3d:new(track.mDirection[1], track.mDirection[2], track.mDirection[3]) * track.mSpeed * command.mTimer:total()
+                            entity.mEntity:SetPosition(
+                                command.mNextPosition[1],
+                                command.mNextPosition[2],
+                                command.mNextPosition[3]
+                            )
+                    elseif track.mType == "Point" then
+                        command.mTimer = command.mTimer or new(Timer)
+                        if command.mTimer:total() > track.mTime then
+                            command.mState = Command.EState.Finish
+                        end
                     end
-                    entity.mEntity:SetPosition(
-                        command.mNextPosition[1],
-                        command.mNextPosition[2],
-                        command.mNextPosition[3]
-                    )
                 end
             }
         )
     )
+end
+
+function EntityCustomManager:_createTrackEntity(tracks)
+    local command_queue = CommandQueueManager.singleton():createQueue()
+    for i,track in pairs(tracks) do
+        local x,y,z=ConvertToBlockIndex(track.mSrcPosition[1],track.mSrcPosition[2],track.mSrcPosition[3])
+        local entity = self:_createEntity(x,y,z,track.mModel,nil,track.mModelScaling)
+        self:_createEntityTrack(entity,track,command_queue)
+        command_queue:post(new(Command_Callback,{mDebug = "EntityCustomManager:_createTrackEntity/PostProcess/"..tostring(i),mExecuteCallback = function(command)
+            self:_destroyEntity(entity)
+            command.mState = Command.EState.Finish
+        end}))
+    end
+    command_queue:post(new(Command_Callback,{mDebug = "EntityCustomManager:_createTrackEntity/Finish",mExecuteCallback = function(command)
+        command.mState = Command.EState.Finish
+        CommandQueueManager.singleton():destroyQueue(command_queue)
+    end}))
 end
 -----------------------------------------------------------------------------------------Host-----------------------------------------------------------------------------------------
 function Host.addListener(key, listener)
@@ -1690,7 +1768,7 @@ GameConfig.mMonsterLibrary = {
 }
 GameConfig.mTerrainLibrary = {
     {mTemplateResource = {hash = "FmwBON_T9nhgYWceOETvf7_xlyou", pid = "13585", ext = "bmax"}},
-    {mTemplateResource = {hash = "Fq2TeT-66PPYPo-ax1DeIK1x7uhi", pid = "13586", ext = "bmax"}}
+    {mTemplateResource = {hash="FgPKVCfqUtyvhNRIB1wPi6fwHZzs",pid="13998",ext="bmax",}}
 }
 GameConfig.mSafeHouse = {mTemplateResource = {hash = "FpHOk_oMV1lBqaTtMLjqAtqyzJp4", pid = "5453", ext = "bmax"}}
 GameConfig.mMatch = {
@@ -1704,6 +1782,8 @@ GameConfig.mPlayers = {
     mStopTime = 0
 }
 GameConfig.mPrepareTime = 15
+GameConfig.mBullet = {mModelResource = {hash = "FrwJ2e5GdVX8aMghRov5waetE7WV", pid = "278", ext = "bmax"}}
+GameConfig.mHitEffect = {mModel = "character/v5/09effect/Rag_FireNova_Area.x",mModelScaling = 0.01}
 -----------------------------------------------------------------------------------------GameCompute-----------------------------------------------------------------------------------
 function GameCompute.computePlayerHP(level)
     return 7 / GameCompute.computeMonsterAttackTime() * GameCompute.computeMonsterAttackValue(level)
@@ -5176,57 +5256,29 @@ end
 function Client_GamePlayer:onHit(weapon, result)
     if self.mPlayerID == GetPlayerId() then
         local x, y, z = GetPlayer():GetBlockPos()
-        GetResourceModel(
-            {hash = "FrwJ2e5GdVX8aMghRov5waetE7WV", pid = "278", ext = "bmax"},
+        local src_position = GetPlayer():getPosition() + vector3d:new(0,1,0)
+        local target_position
+        local track_bullet = {mType = "Ray",mTime = 1,mSpeed = 100,mSrcPosition = src_position}
+        if result.entity then
+            target_position = result.entity:getPosition()
+        elseif result.blockX and result.blockY and result.blockZ then
+            target_position = {}
+            target_position[1],target_position[2],target_position[3] = ConvertToRealPosition(result.blockX,result.blockY,result.blockZ)
+        end
+        local dir = target_position - src_position
+        local length = dir:length()
+        track_bullet.mTime = length / track_bullet.mSpeed
+        track_bullet.mDirection = dir:normalize()
+        local track_hit = {mType = "Point",mTime = 1,mSrcPosition = target_position,mModel = GameConfig.mHitEffect.mModel,mModelScaling = GameConfig.mHitEffect.mModelScaling}
+        local function create_track_entity()
+            if track_bullet.mModel and track_hit.mModel then
+                EntityCustomManager.singleton():createTrackEntity({track_bullet,track_hit})
+            end
+        end
+        GetResourceModel(GameConfig.mBullet.mModelResource,
             function(path, err)
-                EntityCustomManager.singleton():createEntity(
-                    x,
-                    y + 1,
-                    z,
-                    path,
-                    function(hostKey)
-                        CommandQueueManager.singleton():post(
-                            new(
-                                Command_Callback,
-                                {
-                                    mDebug = "Client_GamePlayer:onHit",
-                                    mExecutingCallback = function(command)
-                                        if not command.mTracked then
-                                            if result.entity then
-                                                local dir =
-                                                    (result.entity:getPosition() - entity.mEntity:getPosition()):normalize(
-
-                                                )
-                                                EntityCustomManager.singleton():createEntityTrack(
-                                                    hostKey,
-                                                    {mType = "Ray", mDirection = dir, mSpeed = 10}
-                                                )
-                                            elseif result.blockX and result.blockY and result.blockZ then
-                                                local dir =
-                                                    vector3d:new(
-                                                    result.blockX - x,
-                                                    result.blockY - (y + 1),
-                                                    result.blockZ - z
-                                                ):normalize()
-                                                EntityCustomManager.singleton():createEntityTrack(
-                                                    hostKey,
-                                                    {mType = "Ray", mDirection = dir, mSpeed = 10}
-                                                )
-                                            end
-                                            command.mTracked = true
-                                        end
-                                        command.mTimer = command.mTimer or new(Timer)
-                                        if command.mTimer:total() > 5 then
-                                            delete(command.mTimer)
-                                            EntityCustomManager.singleton():destroyEntity(hostKey)
-                                            command.mState = Command.EState.Finish
-                                        end
-                                    end
-                                }
-                            )
-                        )
-                    end
-                )
+                track_bullet.mModel = path
+                create_track_entity()
             end
         )
     end
@@ -5469,11 +5521,11 @@ WeaponSystem.onHit(
     function(weapon, result)
         Client_Game.singleton():onHit(weapon, result)
         -- 创建子弹击中方块效果
-        if result.block_id then
-            CreateBlockPieces(result.block_id, result.blockX, result.blockY, result.blockZ)
+        --[[if result.block_id then
+            CreateBlockPieces(result.block_id, result.blockX, result.blockY, result.blockZ, 1)
         elseif result.entity then
-            CreateBlockPieces(2051, result.blockX, result.blockY, result.blockZ)
-        end
+            CreateBlockPieces(2051, result.blockX, result.blockY, result.blockZ, 1)
+        end]]
     end
 )
 
