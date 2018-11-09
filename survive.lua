@@ -968,7 +968,7 @@ end
 function EntityCustomManager:createTrackEntity(tracks)
     self:_createTrackEntity(tracks)
     self:broadcast(
-        "CreateTrackEntityHost",
+        "CreateTrackEntity",
         {mTracks = tracks,mPlayerID = GetPlayerId()}
     )
 end
@@ -1718,17 +1718,17 @@ local GameEffectManager = {}
 local Host_Game = {}
 local Host_GamePlayerManager = {}
 local Host_GameMonsterManager = {}
+local Host_GameEffectManager = {}
 local Host_GameTerrain = {}
 local Host_GameMonsterGenerator = {}
 local Host_GamePlayer = {}
 local Host_GameMonster = {}
-local Host_GameEffectManager = {}
 local Client_Game = {}
 local Client_GamePlayerManager = {}
 local Client_GameMonsterManager = {}
+local Client_GameEffectManager = {}
 local Client_GamePlayer = {}
 local Client_GameMonster = {}
-local Client_GameEffectManager = {}
 -----------------------------------------------------------------------------------------GameConfig-----------------------------------------------------------------------------------
 GameConfig.mMonsterPointBlockID = 2101
 GameConfig.mHomePointBlockID = 2102
@@ -3938,13 +3938,6 @@ function GamePlayerProperty:construction(parameter)
 end
 
 function GamePlayerProperty:destruction()
-    self:safeWrite("mHP")
-    self:safeWrite("mHPLevel")
-    self:safeWrite("mAttackValueLevel")
-    self:safeWrite("mAttackTimeLevel")
-    self:safeWrite("mConfigIndex")
-    self:safeWrite("mMoney")
-    self:safeWrite("mKill")
 end
 
 function GamePlayerProperty:_getLockKey(propertyName)
@@ -3956,9 +3949,6 @@ function GameMonsterProperty:construction(parameter)
 end
 
 function GameMonsterProperty:destruction()
-    self:safeWrite("mHP")
-    self:safeWrite("mLevel")
-    self:safeWrite("mConfigIndex")
 end
 
 function GameMonsterProperty:_getLockKey(propertyName)
@@ -3969,7 +3959,6 @@ function GameMonsterManagerProperty:construction(parameter)
 end
 
 function GameMonsterManagerProperty:destruction()
-    self:safeWrite("mMonsterCount")
 end
 
 function GameMonsterManagerProperty:_getLockKey(propertyName)
@@ -3986,22 +3975,126 @@ function GameProperty:_getLockKey(propertyName)
     return "GameProperty/" .. propertyName
 end
 -----------------------------------------------------------------------------------------GameEffectManager-----------------------------------------------------------------------------------
+GameEffectManager.Effect = {}
+function GameEffectManager.Effect:construction(parameter)
+end
+
+function GameEffectManager.Effect:destruction()
+    self.mDelete = true
+end
+
+GameEffectManager.MonsterDead = inherit(GameEffectManager.Effect)
+GameEffectManager.MonsterDead.PlayerEffect = {}
+
+function GameEffectManager.MonsterDead.PlayerEffect:construction(parameter)
+    local src_position = vector3d:new(parameter.mMonsterInfo.mPosition)
+    self.mTargetPosition = vector3d:new(parameter.mPlayerInfo.mPosition) - src_position
+    self.mBillboardSet = CreateBillboardSet(src_position[1], src_position[2], src_position[3])
+    self.mBillboardSet:setDefaultDimensions(1,1)
+    self.mBillboardSet:setTexture(CreateItemStack(55):GetIcon())
+    self.mBillboards = {}
+    local billboard_count = math.ceil(parameter.mPlayerInfo.mMoney / 1)
+    for i=1,billboard_count do
+        local billboard = self.mBillboardSet:createBillboard()
+        billboard:setPosition(math.random(-1,1),math.random(-1,1),math.random(-1,1))
+        self.mBillboards[#self.mBillboards+1] = {mBillboard = billboard,mDirection = (self.mTargetPosition - billboard:getPosition()):normalize()}
+    end
+end
+
+function GameEffectManager.MonsterDead.PlayerEffect:destruction()
+    self.mBillboards = nil
+    self.mBillboardSet:delete()
+    self.mBillboardSet = nil
+end
+
+function GameEffectManager.MonsterDead.PlayerEffect:update()
+    self.mBillboardSet:render()
+    local need_delete = true
+    for _,billboard in pairs(self.mBillboards) do
+        need_delete = need_delete and billboard.mBillboard:getPosition():equals(self.mTargetPosition,0.01)
+    end
+    if need_delete then
+        delete(self)
+    else
+        self.mTimer = self.mTimer or new(Timer)
+        for _,billboard in pairs(self.mBillboards) do
+            local new_pos = billboard.mBillboard:getPosition() + billboard.mDirection * self.mTimer:total() * 10
+            if billboard.mDirection[1] > 0 then
+                new_pos[1] = math.min(self.mTargetPosition[1],new_pos[1])
+            else
+                new_pos[1] = math.max(self.mTargetPosition[1],new_pos[1])
+            end
+            if billboard.mDirection[2] > 0 then
+                new_pos[2] = math.min(self.mTargetPosition[2],new_pos[2])
+            else
+                new_pos[2] = math.max(self.mTargetPosition[2],new_pos[2])
+            end
+            if billboard.mDirection[3] > 0 then
+                new_pos[3] = math.min(self.mTargetPosition[3],new_pos[3])
+            else
+                new_pos[3] = math.max(self.mTargetPosition[3],new_pos[3])
+            end
+            billboard.mBillboard:setPosition(new_pos[1],new_pos[2],new_pos[3])
+        end
+    end
+end
+
+function GameEffectManager.MonsterDead:construction(parameter)
+    self.mPlayerEffects = {}
+    for _,player_info in pairs(parameter.mPlayerInfos) do
+        self.mPlayerEffects[#self.mPlayerEffects+1] = new(GameEffectManager.MonsterDead.PlayerEffect,{mPlayerInfo = player_info,mMonsterInfo = parameter.mMonsterInfo})
+    end
+end
+
+function GameEffectManager.MonsterDead:destruction()
+    for _,effect in pairs(self.mPlayerEffects) do
+        delete(effect)
+    end
+    self.mPlayerEffects = nil
+end
+
+function GameEffectManager.MonsterDead:update()
+    local index = 1
+    while index <= #self.mPlayerEffects do
+        local effect = self.mPlayerEffects[index]
+        if effect.mBillboardSet then
+            effect:update()
+            index = index + 1
+        else
+            table.remove(self.mPlayerEffects,index)
+        end
+    end
+    if #self.mPlayerEffects == 0 then
+        delete(self)
+    end
+end
+
 function GameEffectManager:construction()
+    self.mEffects = {}
 end
 
 function GameEffectManager:destruction()
+    for _,effect in pairs(self.mEffects) do
+        delete(effect)
+    end
+    self.mEffects = nil
 end
 
-function GameEffectManager:createMonsterDead()
-    scene = GetParticleSystem().createScene("MonsterDead", x, y, z)
-    scene:setParticleQuota(1000)
-    scene:setDefaultDimensions(1,1)
-    scene:setTexture(CreateItemStack(55):GetIcon())
-    local emitter = scene:addEmitter("Point")
-    emitter:setParticleDirection(1,0,0)
-    emitter:setEmissionRate(1)
-    emitter:setParticleVelocity(1, 1)
-    emitter:setParticleTimeToLive(10, 10)
+function GameEffectManager:createMonsterDead(monsterInfo,playerInfos)
+    self.mEffects[#self.mEffects+1] = new(GameEffectManager.MonsterDead,{mMonsterInfo = monsterInfo,mPlayerInfos = playerInfos})
+end
+
+function GameEffectManager:update()
+    local index = 1
+    while index <= #self.mEffects do
+        local effect = self.mEffects[index]
+        if effect.mDelete then
+            table.remove(self.mEffects,index)
+        else
+            effect:update()
+            index = index + 1
+        end
+    end
 end
 -----------------------------------------------------------------------------------------Host_Game-----------------------------------------------------------------------------------
 function Host_Game.singleton()
@@ -4012,6 +4105,7 @@ function Host_Game:construction()
     Host_Game.msInstance = self
     self.mCommandQueue = CommandQueueManager.singleton():createQueue()
     self.mProperty = new(GameProperty)
+    self.mEffectManager = new(Host_GameEffectManager)
     self.mSafeHouse = {}
     local x, y, z = GetHomePosition()
     x, y, z = ConvertToBlockIndex(x, y + 0.5, z)
@@ -4033,13 +4127,19 @@ end
 function Host_Game:destruction()
     CommandQueueManager.singleton():destroyQueue(self.mCommandQueue)
     delete(self.mPlayerManager)
+    self.mPlayerManager = nil
     delete(self.mMonsterManager)
+    self.mMonsterManager = nil
+    delete(self.mEffectManager)
+    self.mEffectManager = nil
     if self.mSafeHouse then
         delete(self.mSafeHouse.mTerrain)
     end
     if self.mScene then
         delete(self.mScene.mTerrain)
     end
+    self.mProperty:safeWrite("mLevel")
+    delete(self.mProperty)
     Host_Game.msInstance = nil
 end
 
@@ -4049,6 +4149,9 @@ function Host_Game:update(deltaTime)
     end
     if self.mMonsterManager then
         self.mMonsterManager:update(deltaTime)
+    end
+    if self.mEffectManager then
+        self.mEffectManager:update(deltaTime)
     end
     if self.mSafeHouse then
         self.mSafeHouse.mTerrain:update()
@@ -4064,6 +4167,10 @@ end
 
 function Host_Game:getMonsterManager()
     return self.mMonsterManager
+end
+
+function Host_Game:getEffectManager()
+    return self.mEffectManager
 end
 
 function Host_Game:setScene(scene, callback)
@@ -4300,13 +4407,10 @@ function Host_GamePlayerManager:_createPlayer(entityWatcher)
         local pos = Host_Game.singleton().mSafeHouse.mTerrain:getHomePoint()
         SetEntityBlockPos(ret:getID(), pos[1], pos[2], pos[3])
     end
-    self:broadcast("CreatePlayer", {mPlayerID = ret:getID()})
     return ret
 end
 
 function Host_GamePlayerManager:_destroyPlayer(id)
-    echo("devilwalk", "Host_GamePlayerManager:_destroyPlayer:id:" .. tostring(id))
-    self:broadcast("DestroyPlayer", {mPlayerID = id})
     for i, player in pairs(self.mPlayers) do
         if player:getID() == id then
             delete(player)
@@ -4334,11 +4438,25 @@ end
 function Host_GameMonsterManager:construction()
     self.mMonsters = {}
     self.mProperty = new(GameMonsterManagerProperty)
+
+    PlayerManager.addEventListener(
+        "PlayerIn",
+        "Host_GameMonsterManager",
+        function(inst, parameter)
+            for _, monster in pairs(self.mMonsters) do
+                if monster:getProperty():cache().mHP > 0 then
+                    self:sendToClient(parameter.mPlayerID,"CreateMonster", {mEntityID = monster:getID()})
+                end
+            end
+        end,
+        self
+    )
     Host.addListener("GameMonsterManager", self)
 end
 
 function Host_GameMonsterManager:destruction()
     self:reset()
+    self.mProperty:safeWrite("mMonsterCount")
     delete(self.mProperty)
     Host.removeListener("GameMonsterManager", self)
 end
@@ -4382,6 +4500,10 @@ end
 
 function Host_GameMonsterManager:broadcast(message, parameter)
     Host.broadcast({mKey = "GameMonsterManager", mMessage = message, mParameter = parameter})
+end
+
+function Host_GameMonsterManager:sendToClient(playerID,message,parameter)
+    Host.sendTo(self.mPlayerID, {mKey = "GameMonsterManager", mMessage = message, mParameter = parameter})
 end
 
 function Host_GameMonsterManager:receive(parameter)
@@ -4444,6 +4566,36 @@ function Host_GameMonsterManager:_generateMonsters(deltaTime)
             self:_createMonster(monster)
         end
     end
+end
+-----------------------------------------------------------------------------------------Host_GameEffectManager-----------------------------------------------------------------------------------
+function Host_GameEffectManager:construction(parameter)
+end
+
+function Host_GameEffectManager:destruction()
+end
+
+function Host_GameEffectManager:update()
+end
+
+function Host_GameEffectManager:broadcast(message,parameter)
+    Host.broadcast({mKey = "GameEffectManager", mMessage = message, mParameter = parameter})
+end
+
+function Host_GameEffectManager:monsterDead(monster)
+    local monster_info = {}
+    monster_info.mPosition = monster.mEntity:getPosition() + vector3d:new(0,0.5,0)
+    local player_infos = {}
+    local total_money = monLootGold(monster.mProperty:cache().mLevel)
+    for player_id,damage in pairs(monster.mDamaged) do
+        local player = Host_Game.singleton():getPlayerManager():getPlayerByID(player_id)
+        if player then
+            local player_info = {}
+            player_info.mPosition = GetEntityById(player_id):getPosition() + vector3d:new(0,0.5,0)
+            player_info.mMoney = total_money * damage / monster:getProperty():cache().mInitHP
+            player_infos[#player_infos+1] = player_info
+        end
+    end
+    self:broadcast("MonsterDead",{mMonsterInfo = monster_info,mPlayerInfos = player_infos})
 end
 -----------------------------------------------------------------------------------------Host_GameTerrain-----------------------------------------------------------------------------------
 function Host_GameTerrain:construction(parameter)
@@ -4598,10 +4750,17 @@ function Host_GamePlayer:construction(parameter)
 end
 
 function Host_GamePlayer:destruction()
-    echo("devilwalk", "Host_GamePlayer:destruction")
     self.mProperty:removePropertyListener("mHPLevel", self)
     self.mProperty:removePropertyListener("mAttackValueLevel", self)
     self.mProperty:removePropertyListener("mAttackTimeLevel", self)
+    self.mProperty:removePropertyListener("mMoney", self)
+    self.mProperty:safeWrite("mConfigIndex")
+    self.mProperty:safeWrite("mKill")
+    self.mProperty:safeWrite("mHPLevel")
+    self.mProperty:safeWrite("mAttackValueLevel")
+    self.mProperty:safeWrite("mAttackTimeLevel")
+    self.mProperty:safeWrite("mHP")
+    self.mProperty:safeWrite("mMoney")
     delete(self.mProperty)
     Host.removeListener(self:_getSendKey(), self)
 end
@@ -4725,6 +4884,10 @@ function Host_GameMonster:construction(parameter)
 end
 
 function Host_GameMonster:destruction()
+    self.mProperty:safeWrite("mConfigIndex")
+    self.mProperty:safeWrite("mLevel")
+    self.mProperty:safeWrite("mInitHP")
+    self.mProperty:safeWrite("mHP")
     delete(self.mProperty)
     if self.mEntity then
         self.mEntity:SetDead(true)
@@ -4814,6 +4977,7 @@ end
 
 function Host_GameMonster:_checkDead(lastHitPlayerID)
     if self.mProperty:cache().mHP <= 0 then
+        Host_Game.singleton():getEffectManager():monsterDead(self)
         if self.mEntity then
             self.mEntity:SetDead(true)
             self.mEntity = nil
@@ -4876,9 +5040,10 @@ function Host_GameMonster:_updateMoveTarget()
     end
 end
 -----------------------------------------------------------------------------------------Client_Game-----------------------------------------------------------------------------------
-function Client_Game.singleton()
-    if not Client_Game.msInstance then
+function Client_Game.singleton(construct)
+    if construct and not Client_Game.msInstance then
         Client_Game.msInstance = new(Client_Game)
+        Client_Game.msInstance:initialize()
     end
     return Client_Game.msInstance
 end
@@ -4887,6 +5052,7 @@ function Client_Game:construction()
     self.mProperty = new(GameProperty)
     self.mPlayerManager = new(Client_GamePlayerManager)
     self.mMonsterManager = new(Client_GameMonsterManager)
+    self.mEffectManager = new(Client_GameEffectManager)
 
     self.mProperty:addPropertyListener(
         "mLevel",
@@ -4898,15 +5064,26 @@ end
 
 function Client_Game:destruction()
     delete(self.mMonsterManager)
+    self.mMonsterManager = nil
     delete(self.mPlayerManager)
+    self.mPlayerManager = nil
+    delete(self.mEffectManager)
+    self.mEffectManager = nil
     self.mProperty:removePropertyListener("mLevel")
     delete(self.mProperty)
     Client_Game.msInstance = nil
 end
 
+function Client_Game:initialize()
+    self.mPlayerManager:initialize()
+    self.mMonsterManager:initialize()
+    self.mEffectManager:initialize()
+end
+
 function Client_Game:update(deltaTime)
     self.mPlayerManager:update(deltaTime)
     self.mMonsterManager:update(deltaTime)
+    self.mEffectManager:update(deltaTime)
 end
 
 function Client_Game:onHit(weapon, result)
@@ -4925,6 +5102,10 @@ function Client_Game:getMonsterManager()
     return self.mMonsterManager
 end
 
+function Client_Game:getEffectManager()
+    return self.mEffectManager
+end
+
 function Client_Game:getProperty()
     return self.mProperty
 end
@@ -4932,12 +5113,34 @@ end
 function Client_GamePlayerManager:construction()
     self.mPlayers = {}
 
+    PlayerManager.addEventListener(
+        "PlayerIn",
+        "Client_GamePlayerManager",
+        function(inst, parameter)
+            self:_createPlayer(parameter.mPlayerID)
+        end,
+        self
+    )
+    PlayerManager.addEventListener(
+        "PlayerRemoved",
+        "Client_GamePlayerManager",
+        function(inst, parameter)
+            self:_destroyPlayer(parameter.mPlayerID)
+        end,
+        self
+    )
     Client.addListener("GamePlayerManager", self)
 end
 
 function Client_GamePlayerManager:destruction()
     self:reset()
     Client.removeListener("GamePlayerManager", self)
+end
+
+function Client_GamePlayerManager:initialize()
+    for id, player in pairs(PlayerManager.mPlayers) do
+        self:_createPlayer(id)
+    end
 end
 
 function Client_GamePlayerManager:reset()
@@ -4957,11 +5160,7 @@ function Client_GamePlayerManager:receive(parameter)
     local is_responese, _ = string.find(parameter.mMessage, "_Response")
     if is_responese then
     else
-        if parameter.mMessage == "CreatePlayer" then
-            self:_createPlayer(parameter.mParameter.mPlayerID)
-        elseif parameter.mMessage == "DestroyPlayer" then
-            self:_destroyPlayer(parameter.mParameter.mPlayerID)
-        elseif parameter.mMessage == "Reset" then
+        if parameter.mMessage == "Reset" then
             self:reset()
         end
     end
@@ -5050,6 +5249,9 @@ function Client_GameMonsterManager:destruction()
     Client.removeListener("GameMonsterManager", self)
 end
 
+function Client_GameMonsterManager:initialize()
+end
+
 function Client_GameMonsterManager:update(deltaTime)
     for _, monster in pairs(self.mMonsters) do
         monster:update()
@@ -5109,6 +5311,32 @@ function Client_GameMonsterManager:_destroyMonster(entityID)
         end
     end
 end
+-----------------------------------------------------------------------------------------Client_GameEffectManager-----------------------------------------------------------------------------------
+function Client_GameEffectManager:construction(parameter)
+    self.mEffectManager = new(GameEffectManager)
+
+    Client.addListener("GameEffectManager",self)
+end
+
+function Client_GameEffectManager:destruction()
+    delete(self.mEffectManager)
+    self.mEffectManager = nil
+
+    Client.removeListener("GameEffectManager",self)
+end
+
+function Client_GameEffectManager:initialize()
+end
+
+function Client_GameEffectManager:receive(parameter)
+    if parameter.mMessage == "MonsterDead" then
+        self.mEffectManager:createMonsterDead(parameter.mParameter.mMonsterInfo,parameter.mParameter.mPlayerInfos)
+    end
+end
+
+function Client_GameEffectManager:update()
+    self.mEffectManager:update()
+end
 -----------------------------------------------------------------------------------------Client_GamePlayer-----------------------------------------------------------------------------------
 function Client_GamePlayer:construction(parameter)
     self.mPlayerID = parameter.mPlayerID
@@ -5146,7 +5374,6 @@ function Client_GamePlayer:construction(parameter)
         Tip("按R键重装子弹")
         initUi()
     end
-    self.mProperty:safeRead("mConfigIndex")
     self.mProperty:addPropertyListener(
         "mHPLevel",
         self,
@@ -5163,7 +5390,7 @@ function Client_GamePlayer:construction(parameter)
         "mAttackTimeLevel",
         self,
         function()
-            if WeaponSystem.get(1) then
+            if WeaponSystem.get(1) and self.mProperty:cache().mAttackTimeLevel then
                 WeaponSystem.get(1):setProperty(
                     "atk_speed",
                     GameCompute.computePlayerAttackTime(self.mProperty:cache().mAttackTimeLevel) * 1000
@@ -5426,7 +5653,7 @@ function Client_GameMonster:onHit(weapon)
     local property_change = {}
     property_change.mHPSubtract =
         GameCompute.computePlayerAttackValue(
-        Client_Game.singleton():getPlayerManager():getPlayerByID(GetPlayerId()):getProperty():cache().mAttackValueLevel
+        Client_Game.singleton():getPlayerManager():getPlayerByID():getProperty():cache().mAttackValueLevel
     )
     self:sendToHost("PropertyChange", property_change)
 end
@@ -5513,6 +5740,7 @@ end
 -- 入口
 function main()
     Framework.singleton()
+    Client_Game.singleton(true)
     Revive()
     SendTo("host", {mMessage = "CheckHost"})
 end
@@ -5523,9 +5751,7 @@ function clear()
     SetItemStackToInventory(1, {})
     SetItemStackToInventory(2, {})
 
-    if Client_Game.msInstance then
-        delete(Client_Game.singleton())
-    end
+    delete(Client_Game.singleton())
     if Host_Game.singleton() then
         delete(Host_Game.singleton())
         Host.broadcast({mMessage = "Clear"})
@@ -5552,7 +5778,6 @@ WeaponSystem.onHit(
 )
 
 function receiveMsg(parameter)
-    Client_Game.singleton()
     if parameter.mMessage == "CheckHost" then
         if not Host_Game.singleton() then
             new(Host_Game)
