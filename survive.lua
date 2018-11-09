@@ -973,9 +973,10 @@ function EntityCustomManager:createTrackEntity(tracks)
     )
 end
 
-function EntityCustomManager:_createEntity(x, y, z, path, hostKey, modelScaling)
+function EntityCustomManager:_createEntity(x, y, z, path, hostKey, modelScaling, modelFacing)
     local ret = new(EntityCustom, {mX = x, mY = y, mZ = z, mModel = path, mClientKey = self:_generateNextEntityClientKey(), mHostKey = hostKey})
     ret.mEntity:SetScaling(modelScaling or 1)
+    ret.mEntity:SetFacing(modelFacing or 0)
     self.mEntities[#self.mEntities+1] = ret
     return ret
 end
@@ -1039,8 +1040,9 @@ function EntityCustomManager:_createTrackEntity(tracks)
     local command_queue = CommandQueueManager.singleton():createQueue()
     for i,track in pairs(tracks) do
         local x,y,z=ConvertToBlockIndex(track.mSrcPosition[1],track.mSrcPosition[2],track.mSrcPosition[3])
-        local entity = self:_createEntity(x,y,z,track.mModel,nil,track.mModelScaling)
+        local entity = self:_createEntity(x,y,z,track.mModel,nil,track.mModelScaling,track.mModelFacing)
         entity.mEntity:SetPosition(track.mSrcPosition[1],track.mSrcPosition[2],track.mSrcPosition[3])
+        entity.mEntity:SetFacing(track.mModelFacing or 0)
         self:_createEntityTrack(entity,track,command_queue)
         command_queue:post(new(Command_Callback,{mDebug = "EntityCustomManager:_createTrackEntity/PostProcess/"..tostring(i),mExecuteCallback = function(command)
             self:_destroyEntity(entity)
@@ -1771,8 +1773,8 @@ GameConfig.mMonsterLibrary = {
     }
 }
 GameConfig.mTerrainLibrary = {
-    {mTemplateResource = {hash = "FmwBON_T9nhgYWceOETvf7_xlyou", pid = "13585", ext = "bmax"}},
-    {mTemplateResource = {hash="FgPKVCfqUtyvhNRIB1wPi6fwHZzs",pid="13998",ext="bmax",}}
+    --{mTemplateResource = {hash = "FmwBON_T9nhgYWceOETvf7_xlyou", pid = "13585", ext = "bmax"}},
+    {mTemplateResource = {hash="FrE3LSnfdsm1PMKngKapsrtjIOKG",pid="14339",ext="bmax",}}
 }
 GameConfig.mSafeHouse = {mTemplateResource = {hash = "FpHOk_oMV1lBqaTtMLjqAtqyzJp4", pid = "5453", ext = "bmax"}}
 GameConfig.mMatch = {
@@ -1786,7 +1788,7 @@ GameConfig.mPlayers = {
     mStopTime = 0
 }
 GameConfig.mPrepareTime = 15
-GameConfig.mBullet = {mModelResource = {hash = "FrwJ2e5GdVX8aMghRov5waetE7WV", pid = "278", ext = "bmax"}}
+GameConfig.mBullet = {mModelResource = {hash="FkgiJVNeYnWcWW68sMUEI7dRGjSE",pid="14307",ext="bmax",}}
 GameConfig.mHitEffect = {mModel = "character/v5/09effect/ceshi/fire/2/OnHit.x",mModelScaling = 0.7}
 -----------------------------------------------------------------------------------------GameCompute-----------------------------------------------------------------------------------
 function GameCompute.computePlayerHP(level)
@@ -2592,7 +2594,8 @@ local gameUi = {
         shadow = true,
         font_color = "255 255 255",
         visible = function()
-            return getUiValue("levelInfo_background", "visible")
+          return false
+            -- return getUiValue("levelInfo_background", "visible")
         end
     },
     -- 排行榜
@@ -2631,7 +2634,8 @@ local gameUi = {
         shadow = true,
         font_color = "255 255 255 150",
         visible = function()
-            return getUiValue("ranking_background", "visible")
+            return true
+            -- return getUiValue("ranking_background", "visible")
         end
     },
     {
@@ -3468,421 +3472,7 @@ local gameUi = {
         end
     }
 }
---[[local gameUi = {
-    {
-        ui_name = "upgrade_background",
-        type = "Picture",
-        background_color = "0 148 236 255",
-        align = "_ct",
-        y = 0,
-        x = 0,
-        height = 500,
-        width = 800,
-        visible = true
-    },
-    {
-        ui_name = "upgrade_title",
-        type = "Text",
-        align = "_ct",
-        text = function()
-            local text = "能力提升"
 
-            return text
-        end,
-        -- font_type = "Source Han Sans SC Bold",
-        font_size = 50,
-        x = function()
-            return getUiValue("upgrade_background", "x") - 0
-        end,
-        y = function()
-            return getUiValue("upgrade_background", "y") - 220
-        end,
-        font_bold = true,
-        height = 70,
-        width = 300,
-        text_format = 1,
-        --text_border = true,
-        shadow = true,
-        font_color = "255 255 255",
-        visible = true
-    },
-    {
-        ui_name = "close_button",
-        type = "Button",
-        align = "_ct",
-        background_color = "220 20 60 255",
-        text = function()
-            local text = "X"
-
-            return text
-        end,
-        -- font_type = "Source Han Sans SC Bold",
-        font_size = 30,
-        x = function()
-            return getUiValue("upgrade_background", "x") + 350
-        end,
-        y = function()
-            return getUiValue("upgrade_background", "y") - 210
-        end,
-        onclick = function()
-            closeSafeHouseUI()
-        end,
-        font_bold = true,
-        height = 60,
-        width = 60,
-        text_format = 5,
-        --text_border = true,
-        shadow = true,
-        font_color = "220 20 60",
-        visible = true
-    },
-    {
-        ui_name = "upgrade_fightingLevel",
-        type = "Text",
-        align = "_ct",
-        text = function()
-            local text = "战斗力等级:" .. tostring(saveData.mHPLevel + saveData.mAttackValueLevel + saveData.mAttackTimeLevel)
-
-            return text
-        end,
-        -- font_type = "Source Han Sans SC Bold",
-        font_size = 35,
-        x = function()
-            return getUiValue("upgrade_background", "x") - 0
-        end,
-        y = function()
-            return getUiValue("upgrade_background", "y") - 150
-        end,
-        font_bold = true,
-        height = 70,
-        width = 300,
-        text_format = 1,
-        --text_border = true,
-        shadow = true,
-        font_color = "255 255 255",
-        visible = true
-    },
-    {
-        ui_name = "upgrade_HP",
-        type = "Text",
-        align = "_ct",
-        text = function()
-            local text = "生命等级:" .. tostring(saveData.mHPLevel)
-
-            return text
-        end,
-        -- font_type = "Source Han Sans SC Bold",
-        font_size = 35,
-        x = function()
-            return getUiValue("upgrade_fightingLevel", "x") - 200
-        end,
-        y = function()
-            return getUiValue("upgrade_fightingLevel", "y") + 100
-        end,
-        font_bold = true,
-        height = 70,
-        width = 300,
-        text_format = 1,
-        --text_border = true,
-        shadow = true,
-        font_color = "255 255 255",
-        visible = true
-    },
-    {
-        ui_name = "upgrade_HP_button",
-        type = "Button",
-        align = "_ct",
-        background_color = "0 0 0 255",
-        text = function()
-            local text = "升级"
-
-            return text
-        end,
-        -- font_type = "Source Han Sans SC Bold",
-        font_size = 30,
-        x = function()
-            return getUiValue("upgrade_HP", "x") + 200
-        end,
-        y = function()
-            return getUiValue("upgrade_HP", "y") - 10
-        end,
-        onclick = function()
-            local money = getNextLvGold(getSavedData().mHPLevel)
-            if getSavedData().mMoney >= money then
-                getSavedData().mMoney = getSavedData().mMoney - money
-                getSavedData().mHPLevel = getSavedData().mHPLevel + 1
-                local x,y,z = GetPlayer():GetBlockPos()
-                local host_key = EntityCustomManager.singleton():createEntity(x,y,z,"character/v5/09effect/Upgrade/Upgrade_CirqueGlowRed.x")
-                CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "Command_Callback/UpdateHP",mExecutingCallback = function(command)
-                    command.mTimer = command.mTimer or new(Timer)
-                    local x,y,z = GetPlayer():GetPosition()
-                    EntityCustomManager.singleton():getEntity(host_key):setPositionReal(x,y,z)
-                    if command.mTimer:total() > 0.8 then
-                        delete(command.mTimer)
-                        EntityCustomManager.singleton():destroyEntity(host_key)
-                        command.mState = Command.EState.Finish
-                    end
-                end}))
-            end
-        end,
-        font_bold = true,
-        height = 50,
-        width = 100,
-        text_format = 1,
-        --text_border = true,
-        shadow = true,
-        font_color = "255 255 255",
-        visible = true
-    },
-    {
-        ui_name = "upgrade_HP_gold",
-        type = "Text",
-        align = "_ct",
-        text = function()
-            local text = "需要金钱：" .. tostring(getNextLvGold(getSavedData().mHPLevel))
-
-            return text
-        end,
-        -- font_type = "Source Han Sans SC Bold",
-        font_size = 20,
-        x = function()
-            return getUiValue("upgrade_HP_button", "x") + 150
-        end,
-        y = function()
-            return getUiValue("upgrade_HP_button", "y") + 10
-        end,
-        font_bold = true,
-        height = 50,
-        width = 200,
-        text_format = 1,
-        --text_border = true,
-        shadow = true,
-        font_color = "255 255 255",
-        visible = true
-    },
-    {
-        ui_name = "upgrade_attack",
-        type = "Text",
-        align = "_ct",
-        text = function()
-            local text = "攻击等级:" .. tostring(saveData.mAttackValueLevel)
-
-            return text
-        end,
-        -- font_type = "Source Han Sans SC Bold",
-        font_size = 35,
-        x = function()
-            return getUiValue("upgrade_HP", "x") - 0
-        end,
-        y = function()
-            return getUiValue("upgrade_HP", "y") + 100
-        end,
-        font_bold = true,
-        height = 70,
-        width = 300,
-        text_format = 1,
-        --text_border = true,
-        shadow = true,
-        font_color = "255 255 255",
-        visible = true
-    },
-    {
-        ui_name = "upgrade_attack_button",
-        type = "Button",
-        align = "_ct",
-        background_color = "0 0 0 255",
-        text = function()
-            local text = "升级"
-
-            return text
-        end,
-        -- font_type = "Source Han Sans SC Bold",
-        font_size = 30,
-        x = function()
-            return getUiValue("upgrade_attack", "x") + 200
-        end,
-        y = function()
-            return getUiValue("upgrade_attack", "y") - 10
-        end,
-        onclick = function()
-            local money = getNextLvGold(getSavedData().mAttackValueLevel)
-            if getSavedData().mMoney >= money then
-                getSavedData().mMoney = getSavedData().mMoney - money
-                getSavedData().mAttackValueLevel = getSavedData().mAttackValueLevel + 1
-                local x,y,z = GetPlayer():GetBlockPos()
-                local host_key = EntityCustomManager.singleton():createEntity(x,y,z,"character/v5/09effect/Upgrade/Upgrade_CirqueGlowRed.x")
-                CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "Command_Callback/UpdateAttackValue",mExecutingCallback = function(command)
-                    command.mTimer = command.mTimer or new(Timer)
-                    local x,y,z = GetPlayer():GetPosition()
-                    EntityCustomManager.singleton():getEntity(host_key):setPositionReal(x,y,z)
-                    if command.mTimer:total() > 0.8 then
-                        delete(command.mTimer)
-                        EntityCustomManager.singleton():destroyEntity(host_key)
-                        command.mState = Command.EState.Finish
-                    end
-                end}))
-            end
-        end,
-        font_bold = true,
-        height = 50,
-        width = 100,
-        text_format = 1,
-        --text_border = true,
-        shadow = true,
-        font_color = "255 255 255",
-        visible = true
-    },
-    {
-        ui_name = "upgrade_attack_gold",
-        type = "Text",
-        align = "_ct",
-        text = function()
-            local text = "需要金钱：" .. tostring(getNextLvGold(getSavedData().mAttackValueLevel))
-
-            return text
-        end,
-        -- font_type = "Source Han Sans SC Bold",
-        font_size = 20,
-        x = function()
-            return getUiValue("upgrade_attack_button", "x") + 150
-        end,
-        y = function()
-            return getUiValue("upgrade_attack_button", "y") + 10
-        end,
-        font_bold = true,
-        height = 50,
-        width = 200,
-        text_format = 1,
-        --text_border = true,
-        shadow = true,
-        font_color = "255 255 255",
-        visible = true
-    },
-    {
-        ui_name = "upgrade_attSpeed",
-        type = "Text",
-        align = "_ct",
-        text = function()
-            local text = "攻速等级:" .. tostring(saveData.mAttackTimeLevel)
-
-            return text
-        end,
-        -- font_type = "Source Han Sans SC Bold",
-        font_size = 35,
-        x = function()
-            return getUiValue("upgrade_attack", "x") - 0
-        end,
-        y = function()
-            return getUiValue("upgrade_attack", "y") + 100
-        end,
-        font_bold = true,
-        height = 70,
-        width = 300,
-        text_format = 1,
-        --text_border = true,
-        shadow = true,
-        font_color = "255 255 255",
-        visible = true
-    },
-    {
-        ui_name = "upgrade_attSpeed_button",
-        type = "Button",
-        align = "_ct",
-        background_color = "0 0 0 255",
-        text = function()
-            local text = "升级"
-
-            return text
-        end,
-        -- font_type = "Source Han Sans SC Bold",
-        font_size = 30,
-        x = function()
-            return getUiValue("upgrade_attSpeed", "x") + 200
-        end,
-        y = function()
-            return getUiValue("upgrade_attSpeed", "y") - 10
-        end,
-        onclick = function()
-            local money = getNextLvGold(getSavedData().mAttackTimeLevel)
-            if getSavedData().mMoney >= money then
-                getSavedData().mMoney = getSavedData().mMoney - money
-                getSavedData().mAttackTimeLevel = getSavedData().mAttackTimeLevel + 1
-                local x,y,z = GetPlayer():GetBlockPos()
-                local host_key = EntityCustomManager.singleton():createEntity(x,y,z,"character/v5/09effect/Upgrade/Upgrade_CirqueGlowRed.x")
-                CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "Command_Callback/UpdateAttackTime",mExecutingCallback = function(command)
-                    command.mTimer = command.mTimer or new(Timer)
-                    local x,y,z = GetPlayer():GetPosition()
-                    EntityCustomManager.singleton():getEntity(host_key):setPositionReal(x,y,z)
-                    if command.mTimer:total() > 0.8 then
-                        delete(command.mTimer)
-                        EntityCustomManager.singleton():destroyEntity(host_key)
-                        command.mState = Command.EState.Finish
-                    end
-                end}))
-            end
-        end,
-        font_bold = true,
-        height = 50,
-        width = 100,
-        text_format = 1,
-        --text_border = true,
-        shadow = true,
-        font_color = "255 255 255",
-        visible = true
-    },
-    {
-        ui_name = "upgrade_attSpeed_gold",
-        type = "Text",
-        align = "_ct",
-        text = function()
-            local text = "需要金钱：" .. tostring(getNextLvGold(getSavedData().mAttackTimeLevel))
-
-            return text
-        end,
-        -- font_type = "Source Han Sans SC Bold",
-        font_size = 20,
-        x = function()
-            return getUiValue("upgrade_attSpeed_button", "x") + 150
-        end,
-        y = function()
-            return getUiValue("upgrade_attSpeed_button", "y") + 10
-        end,
-        font_bold = true,
-        height = 50,
-        width = 200,
-        text_format = 1,
-        --text_border = true,
-        shadow = true,
-        font_color = "255 255 255",
-        visible = true
-    },
-    {
-        ui_name = "current_gold",
-        type = "Text",
-        align = "_ct",
-        text = function()
-            local text = "金钱：" .. tostring(saveData.mMoney)
-
-            return text
-        end,
-        -- font_type = "Source Han Sans SC Bold",
-        font_size = 40,
-        x = function()
-            return getUiValue("upgrade_background", "x") - 250
-        end,
-        y = function()
-            return getUiValue("upgrade_background", "y") + 220
-        end,
-        font_bold = true,
-        height = 70,
-        width = 300,
-        text_format = 1,
-        --text_border = true,
-        shadow = true,
-        font_color = "255 215 0",
-        visible = true
-    }
-}]]
 function initUi()
     for i = 1, #gameUi do
         GUI.UI(gameUi[i])
@@ -4899,6 +4489,10 @@ function Host_GameMonster:update()
     if not self.mEntity then
         return
     end
+    local x,y,z = self.mEntity:GetBlockPos()
+    if Host_Game.singleton().mScene and y < Host_Game.singleton().mScene.mTerrain.mHomePosition[2] + 2 then
+        SetEntityBlockPos(self.mEntityID,x,Host_Game.singleton().mScene.mTerrain.mHomePosition[2] + 3,z)
+    end
     if
         self.mAttackTimer and
             self.mAttackTimer:total() >= GameCompute.computeMonsterAttackTime(self.mProperty:cache().mLevel)
@@ -4976,12 +4570,10 @@ function Host_GameMonster:_propertyChange(playerID, change)
 end
 
 function Host_GameMonster:_checkDead(lastHitPlayerID)
-    if self.mProperty:cache().mHP <= 0 then
+    if self.mProperty:cache().mHP <= 0 and self.mEntity then
         Host_Game.singleton():getEffectManager():monsterDead(self)
-        if self.mEntity then
-            self.mEntity:SetDead(true)
-            self.mEntity = nil
-        end
+        self.mEntity:SetDead(true)
+        self.mEntity = nil
         if self.mDamaged then
             local total_money = monLootGold(self.mProperty:cache().mLevel)
             for player_id, damage in pairs(self.mDamaged) do
@@ -5373,6 +4965,16 @@ function Client_GamePlayer:construction(parameter)
         -- 显示提示
         Tip("按R键重装子弹")
         initUi()
+
+        InputManager.addListener(self,function(_,event)
+          if event.event_type == "keyPressEvent" then
+            if event.keyname == "DIK_U" then
+              setUiValue("upgrade_background", "visible", not getUiValue("upgrade_background", "visible"))
+            elseif event.keyname == "DIK_TAB" then
+              setUiValue("ranking_background", "visible", not getUiValue("ranking_background", "visible"))
+            end
+          end
+        end)
     end
     self.mProperty:addPropertyListener(
         "mHPLevel",
@@ -5435,6 +5037,7 @@ function Client_GamePlayer:destruction()
     end
     if self.mPlayerID == GetPlayerId() then
         uninitUi()
+        InputManager.removeListener(self)
     end
     Client.removeListener(self:_getSendKey(), self)
 end
@@ -5487,12 +5090,12 @@ function Client_GamePlayer:receive(parameter)
         elseif parameter.mMessage == "EnterSafeHouse" then
             SetCameraMode(2)
             setUiValue("upgrade_background", "visible", true)
-            setUiValue("chooseLevel_background", "visible", true)
+            --setUiValue("chooseLevel_background", "visible", true)
             setUiValue("levelInfo_background", "visible", false)
         elseif parameter.mMessage == "LeaveSafeHouse" then
             SetCameraMode(3)
             setUiValue("upgrade_background", "visible", false)
-            setUiValue("chooseLevel_background", "visible", false)
+            --setUiValue("chooseLevel_background", "visible", false)
             setUiValue("levelInfo_background", "visible", true)
         end
     end
@@ -5507,7 +5110,7 @@ function Client_GamePlayer:onHit(weapon, result)
         local x, y, z = GetPlayer():GetBlockPos()
         local src_position = GetPlayer():getPosition() + vector3d:new(0,0.5,0) + vector3d:new(GetEntityDirection(self.mPlayerID)) * 0.5
         local target_position
-        local track_bullet = {mType = "Ray",mTime = 1,mSpeed = 100,mSrcPosition = src_position}
+        local track_bullet = {mType = "Ray",mTime = 1,mSpeed = 100,mSrcPosition = src_position,mModelFacing = GetPlayer():GetFacing() - 1.57}
         if result.entity then
             target_position = result.entity:getPosition() + vector3d:new(0,0.1,0)
         elseif result.blockX and result.blockY and result.blockZ then
