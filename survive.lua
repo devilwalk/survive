@@ -1737,49 +1737,43 @@ GameConfig.mHomePointBlockID = 2102
 GameConfig.mMonsterLibrary = {
     {
         mModelResource = {hash = "Fta_KeWpZ2Uut43HCCwZuhIENsUk", pid = "6723", ext = "FBX"},
+        -- mModel = "xxx/xxx/xxx/xxx"
         mModelScaling = 2,
-        mHP = 49,
-        mDefence = {{mType = "穿刺", mValue = 0}},
-        mAttack = {mType = "物理", mValue = 10},
         mAttackTime = 1,
         mStopTime = 1,
         mAttackRange = 1,
-        mSpeed = 1,
+        -- mLevelEnable = function(level)
+        --     return true
+        -- end,
+        -- mLevelDisable = function(level)
+        --     return true
+        -- end,
         mName = "雄性菜头宝宝"
     },
     {
         mModelResource = {hash = "FoHBdQE6rUCrF2BeYRxNbHRxCPPv", pid = "12199", ext = "FBX"},
         mModelScaling = 2,
-        mHP = 49,
-        mDefence = {{mType = "穿刺", mValue = 0}},
-        mAttack = {mType = "物理", mValue = 10},
         mAttackTime = 1,
         mStopTime = 1,
         mAttackRange = 1,
-        mSpeed = 1,
         mName = "蘑菇宝宝"
     },
     {
         mModelResource = {hash = "FklKvN9casvBiqCrvzMjFISaTt_1", pid = "6721", ext = "FBX"},
         mModelScaling = 2,
-        mHP = 49,
-        mDefence = {{mType = "穿刺", mValue = 0}},
-        mAttack = {mType = "物理", mValue = 10},
         mAttackTime = 1,
         mStopTime = 1,
         mAttackRange = 1,
-        mSpeed = 1,
         mName = "皇冠蛇宝宝"
     }
 }
 GameConfig.mTerrainLibrary = {
-    --{mTemplateResource = {hash = "FmwBON_T9nhgYWceOETvf7_xlyou", pid = "13585", ext = "bmax"}},
-    {mTemplateResource = {hash="FrE3LSnfdsm1PMKngKapsrtjIOKG",pid="14339",ext="bmax",}}
+    {mTemplateResource = {hash = "FmwBON_T9nhgYWceOETvf7_xlyou", pid = "13585", ext = "bmax"}},
+    {mTemplateResource = {hash="FmZqnSegd8AKnmRayyFRsTayE1CA",pid="14763",ext="bmax",}}
 }
 GameConfig.mSafeHouse = {mTemplateResource = {hash = "FpHOk_oMV1lBqaTtMLjqAtqyzJp4", pid = "5453", ext = "bmax"}}
 GameConfig.mMatch = {
-    mMonsterGenerateSpeed = 0.3,
-    mMonsterCount = 20
+    mMonsterGenerateSpeed = 0.3
 }
 GameConfig.mPlayers = {
     {mType = "战士", mHP = 70, mAttack = {mType = "穿刺", mValue = 10}, mDefence = {{mType = "物理", mValue = 0}}},
@@ -1838,15 +1832,21 @@ function GameCompute.computeMonsterAttackTime(level)
     return 1
 end
 
-function GameCompute.computeMonsterLevel(players)
-    local level = 0
-    for _, player in pairs(players) do
-        level = level + player:getProperty():cache().mHPLevel
-        level = level + player:getProperty():cache().mAttackValueLevel
-        level = level + player:getProperty():cache().mAttackTimeLevel
+function GameCompute.computeMonsterLevel(matchLevel)
+    return math.ceil(math.max(matchLevel-1,1)/3)
+end
+
+function GameCompute.computeMonsterGenerateCount(matchLevel)
+    local F2 = 20
+    local F3 = 10
+    local level = math.fmod(math.max(matchLevel,2) - 1,3)+1
+    if level == 1 then
+        return F2 - F3
+    elseif level == 2 then
+        return F2
+    else
+        return F2 + F3
     end
-    level = math.ceil(level / ((#players) * 3))
-    return level
 end
 
 function GameCompute.computeMonsterGenerateCountScale(players)
@@ -4070,7 +4070,7 @@ function Host_GameMonsterManager:setScene(scene)
             {
                 mPositions = scene.mTerrain:getMonsterPoints(),
                 mGenerateSpeed = GameConfig.mMatch.mMonsterGenerateSpeed,
-                mGenerateCount = GameConfig.mMatch.mMonsterCount *
+                mGenerateCount = GameCompute.computeMonsterGenerateCount(Host_Game.singleton():getProperty():cache().mLevel) *
                     GameCompute.computeMonsterGenerateCountScale(Host_Game.singleton():getPlayerManager().mPlayers)
             }
         )
@@ -4293,9 +4293,21 @@ function Host_GameMonsterGenerator:generate(deltaTime)
         self.mGenerateTime = self.mGenerateTime - generate_time
     end
     self.mGenerateCount = self.mGenerateCount - need_generate_count
+
+    local monster_library = {}
+    for i,config in pairs(GameConfig.mMonsterLibrary) do
+        if config.mLevelEnable and config.mLevelEnable(Host_Game.singleton():getProperty():cache().mLevel) then
+            monster_library[#monster_library+1] = i
+        elseif config.mLevelDisable and not config.mLevelDisable(Host_Game.singleton():getProperty():cache().mLevel) then
+            monster_library[#monster_library+1] = i
+        elseif not config.mLevelEnable and not config.mLevelDisable then
+            monster_library[#monster_library+1] = i
+        end
+    end
+
     local ret = {}
     for i = 1, need_generate_count do
-        local config_index = math.random(1, #GameConfig.mMonsterLibrary)
+        local config_index = monster_library[math.random(1, #monster_library)]
         ret[#ret + 1] = {mConfigIndex = config_index, mPosition = self.mPositions[math.random(1, #self.mPositions)]}
     end
     return ret
@@ -4462,7 +4474,11 @@ function Host_GameMonster:construction(parameter)
     )
     self.mEntityID = self.mEntity.entityId
     Host_GameMonster.mNameIndex = Host_GameMonster.mNameIndex + 1
-    self.mEntity:setModelFromResource(self:getConfig().mModelResource)
+    if self:getConfig().mModelResource then
+        self.mEntity:setModelFromResource(self:getConfig().mModelResource)
+    elseif self:getConfig().mModel then
+        self.mEntity:setLocalResource(self:getConfig().mModel,6)
+    end
     self.mProperty = new(GameMonsterProperty, {mEntityID = self.mEntityID})
 
     self.mProperty:safeWrite("mConfigIndex", parameter.mConfigIndex)
