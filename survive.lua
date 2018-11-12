@@ -2599,7 +2599,8 @@ local gameUi = {
         shadow = true,
         font_color = "255 255 255",
         visible = function()
-            return getUiValue("levelInfo_background", "visible")
+            return false
+            -- return getUiValue("levelInfo_background", "visible")
         end
     },
     {
