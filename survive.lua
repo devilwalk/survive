@@ -1782,7 +1782,7 @@ GameConfig.mTerrainLibrary = {
 }
 GameConfig.mSafeHouse = {mTemplateResource = {hash = "FpHOk_oMV1lBqaTtMLjqAtqyzJp4", pid = "5453", ext = "bmax"}}
 GameConfig.mMatch = {
-    mMonsterGenerateSpeed = 0.3
+    mMonsterGenerateSpeed = 0.9
 }
 GameConfig.mPlayers = {
     {mType = "战士", mHP = 70, mAttack = {mType = "穿刺", mValue = 10}, mDefence = {{mType = "物理", mValue = 0}}},
@@ -1846,8 +1846,8 @@ function GameCompute.computeMonsterLevel(matchLevel)
 end
 
 function GameCompute.computeMonsterGenerateCount(matchLevel)
-    local F2 = 20
-    local F3 = 10    
+    local F2 = 45
+    local F3 = 15    
   	if matchLevel == 1 then
   		return F2 - F3 
   	elseif matchLevel >1 then
@@ -1868,13 +1868,13 @@ end
 
 local function getNextLvTime(lv)
     if lv < 11 then
-        return 0.02 * lv ^ 2 + 0.3 * lv + 1.08
+        return 0.015 * lv ^ 2 + 0.1 * lv + 0.6
     elseif lv >= 11 and lv < 31 then
-        return 0.02 * lv ^ 2 + 0.3 * lv + 1.08
+        return 0.019 * lv ^ 2 + 0.1 * lv + 0.2
     elseif lv >= 31 and lv < 61 then
-        return 0.06 * lv ^ 2 + 0.1 * lv - 27.5
+        return 0.035 * lv ^ 2 + 0.1 * lv - 10
     elseif lv >= 61 then
-        return 0.25 * lv ^ 2 + 0.3 * lv - 710
+        return 0.09 * lv ^ 2 + 0.3 * lv - 168
     end
 end
 
@@ -3858,7 +3858,7 @@ function Host_Game:_nextMatch()
                     local left_time = math.floor(GameConfig.mPrepareTime - command.mTimer:total())
                     if command.mLeftTime ~= left_time then
                         command.mLeftTime = left_time
-                        Tip("请抓紧时间升级您的战斗力，离开始下一关卡还有"..tostring(command.mLeftTime).."秒")
+                        Tip("请抓紧时间升级您的战斗力，离开始下一关卡还有"..tostring(command.mLeftTime).."秒",1400,"255 255 0","notice")
                     end
                     if command.mTimer:total() >= GameConfig.mPrepareTime then
                         command.mState = Command.EState.Finish
@@ -5052,7 +5052,7 @@ function Client_GamePlayer:construction(parameter)
             }
         )
         -- 显示提示
-        Tip("按R键重装子弹")
+        Tip("按R键重装子弹",3000,"255 255 0","reload")
         initUi()
 
         InputManager.addListener(self,function(_,event)
@@ -5156,7 +5156,7 @@ function Client_GamePlayer:update()
             end
         end
         if WeaponSystem.get(1) and WeaponSystem.get(1):getAmmoCount() == 0 then
-            Tip("按R键重装子弹")
+            Tip("按R键重装子弹",3000,"255 255 0","reload")
         end
     end
 end
