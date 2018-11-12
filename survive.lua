@@ -3855,7 +3855,12 @@ function Host_Game:_nextMatch()
                 mDebug = "Host_Game:_nextMatch/Prepare",
                 mExecutingCallback = function(command)
                     command.mTimer = command.mTimer or new(Timer)
-                    if command.mTimer:total() > GameConfig.mPrepareTime then
+                    local left_time = math.floor(GameConfig.mPrepareTime - command.mTimer:total())
+                    if command.mLeftTime ~= left_time then
+                        command.mLeftTime = left_time
+                        Tip("请抓紧时间升级您的战斗力，离开始下一关卡还有"..tostring(command.mLeftTime).."秒")
+                    end
+                    if command.mTimer:total() >= GameConfig.mPrepareTime then
                         command.mState = Command.EState.Finish
                     end
                 end
