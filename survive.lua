@@ -3581,14 +3581,14 @@ function GamePlayerProperty:_getLockKey(propertyName)
 end
 -----------------------------------------------------------------------------------------GameMonsterProperty-----------------------------------------------------------------------------------
 function GameMonsterProperty:construction(parameter)
-    self.mEntityID = parameter.mEntityID
+    self.mID = parameter.mID
 end
 
 function GameMonsterProperty:destruction()
 end
 
 function GameMonsterProperty:_getLockKey(propertyName)
-    return "GameMonsterProperty/" .. tostring(self.mEntityID) .. "/" .. propertyName
+    return "GameMonsterProperty/" .. tostring(self.mID) .. "/" .. propertyName
 end
 -----------------------------------------------------------------------------------------GameMonsterManagerProperty-----------------------------------------------------------------------------------
 function GameMonsterManagerProperty:construction(parameter)
@@ -4082,7 +4082,7 @@ function Host_GameMonsterManager:construction()
         function(inst, parameter)
             for _, monster in pairs(self.mMonsters) do
                 if monster:getProperty():cache().mHP > 0 then
-                    self:sendToClient(parameter.mPlayerID,"CreateMonster", {mEntityID = monster:getID()})
+                    self:sendToClient(parameter.mPlayerID,"CreateMonster", {mID = monster:getID()})
                 end
             end
         end,
@@ -4186,7 +4186,7 @@ function Host_GameMonsterManager:_createMonster(parameter)
         }
     )
     self.mMonsters[#self.mMonsters + 1] = ret
-    self:broadcast("CreateMonster", {mEntityID = ret:getID()})
+    self:broadcast("CreateMonster", {mID = ret:getID()})
     return ret
 end
 
@@ -4524,7 +4524,7 @@ function Host_GameMonster:construction(parameter)
             scaling = self:getConfig().mModelScaling
         }
     )
-    self.mEntityID = self.mEntity.entityId
+    self.mID = Host_GameMonster.mNameIndex
     Host_GameMonster.mNameIndex = Host_GameMonster.mNameIndex + 1
     if self:getConfig().mModelResource then
         self.mEntity:setModelFromResource(self:getConfig().mModelResource)
@@ -4532,8 +4532,9 @@ function Host_GameMonster:construction(parameter)
         --self.mEntity:setLocalResource(self:getConfig().mModel,6)
     end
     self.mEntity:SetAnimation(1);
-    self.mProperty = new(GameMonsterProperty, {mEntityID = self.mEntityID})
+    self.mProperty = new(GameMonsterProperty, {mID = self.mID})
 
+    self.mProperty:safeWrite("mEntityID", self.mEntity.entityId)
     self.mProperty:safeWrite("mConfigIndex", parameter.mConfigIndex)
     self.mProperty:safeWrite("mLevel", parameter.mLevel)
     self.mProperty:safeWrite("mInitHP", GameCompute.computeMonsterHP(self.mProperty:cache().mLevel))
@@ -4543,6 +4544,7 @@ function Host_GameMonster:construction(parameter)
 end
 
 function Host_GameMonster:destruction()
+    self.mProperty:safeWrite("mEntityID")
     self.mProperty:safeWrite("mConfigIndex")
     self.mProperty:safeWrite("mLevel")
     self.mProperty:safeWrite("mInitHP")
@@ -4558,9 +4560,12 @@ function Host_GameMonster:update()
     if not self.mEntity then
         return
     end
+    if self.mEntity.entityId~=self.mProperty:cache().mEntityID then
+        self.mProperty:safeWrite("mEntityID", self.mEntity.entityId)
+    end
     local x,y,z = self.mEntity:GetBlockPos()
     if Host_Game.singleton().mScene and y < Host_Game.singleton().mScene.mTerrain.mHomePosition[2] + 2 then
-        SetEntityBlockPos(self.mEntityID,x,Host_Game.singleton().mScene.mTerrain.mHomePosition[2] + 2,z)
+        SetEntityBlockPos(self.mEntity.entityId,x,Host_Game.singleton().mScene.mTerrain.mHomePosition[2] + 2,z)
     end
     if
         self.mAttackTimer and
@@ -4607,7 +4612,7 @@ function Host_GameMonster:receive(parameter)
 end
 
 function Host_GameMonster:getID()
-    return self.mEntityID
+    return self.mID
 end
 
 function Host_GameMonster:getEntity()
@@ -4623,7 +4628,7 @@ function Host_GameMonster:getConfig()
 end
 
 function Host_GameMonster:_getSendKey()
-    return "GameMonster/" .. tostring(self.mEntityID)
+    return "GameMonster/" .. tostring(self.mID)
 end
 
 function Host_GameMonster:_propertyChange(playerID, change)
@@ -4945,7 +4950,7 @@ function Client_GameMonsterManager:receive(parameter)
     if is_responese then
     else
         if parameter.mMessage == "CreateMonster" then
-            self:_createMonster(parameter.mParameter.mEntityID)
+            self:_createMonster(parameter.mParameter.mID)
         elseif parameter.mMessage == "Reset" then
             self:reset()
         end
@@ -4955,7 +4960,7 @@ end
 function Client_GameMonsterManager:onHit(weapon, result)
     if result.entity then
         for _, monster in pairs(self.mMonsters) do
-            if result.entity.entityId == monster:getID() then
+            if result.entity.entityId == monster:getProperty():cache().mEntityID then
                 monster:onHit(weapon)
                 break
             end
@@ -4967,15 +4972,15 @@ function Client_GameMonsterManager:getProperty()
     return self.mProperty
 end
 
-function Client_GameMonsterManager:_createMonster(entityID)
-    local ret = new(Client_GameMonster, {mEntityID = entityID})
+function Client_GameMonsterManager:_createMonster(id)
+    local ret = new(Client_GameMonster, {mID = id})
     self.mMonsters[#self.mMonsters + 1] = ret
     return ret
 end
 
-function Client_GameMonsterManager:_destroyMonster(entityID)
+function Client_GameMonsterManager:_destroyMonster(id)
     for i, monster in pairs(self.mMonsters) do
-        if monster:getID() == entityID then
+        if monster:getID() == id then
             delete(monster)
             table.remove(self.mMonsters, i)
             break
@@ -5158,7 +5163,6 @@ function Client_GamePlayer:receive(parameter)
         if parameter.mMessage == "Dead" then
             Die()
             SetItemStackToInventory(1, {})
-            SetItemStackToInventory(2, {})
         elseif parameter.mMessage == "Revive" then
             Revive()
             self:_equpGun()
@@ -5201,6 +5205,7 @@ function Client_GamePlayer:receive(parameter)
             setUiValue("upgrade_background", "visible", false)
             --setUiValue("chooseLevel_background", "visible", false)
             setUiValue("levelInfo_background", "visible", true)
+            self:_updateGun()
         elseif parameter.mMessage == "OnHit" then
             if GetEntityHeadOnObject(self.mPlayerID, "OnHit/" .. tostring(self.mPlayerID)) then
                 local ui = GetEntityHeadOnObject(self.mPlayerID, "OnHit/" .. tostring(self.mPlayerID)):createChild(
@@ -5306,14 +5311,7 @@ function Client_GamePlayer:_updateBloodUI()
 end
 
 function Client_GamePlayer:_equpGun()
-    -- 创建子弹
-    local bullets = CreateItemStack(50101, 999)
-    -- 创建枪
-    local gun = CreateItemStack(40300, 1)
-    -- 把枪和子弹放在人身上
-    SetItemStackToInventory(1, gun)
-    SetItemStackToInventory(2, bullets)
-
+    self:_updateGun()
     -- 设置枪里起始的子弹
     WeaponSystem.get(1):setAmmoCount(30)
     WeaponSystem.get(1):setProperty(
@@ -5321,12 +5319,29 @@ function Client_GamePlayer:_equpGun()
         GameCompute.computePlayerAttackTime(self.mProperty:cache().mAttackTimeLevel) * 1000
     )
 end
+
+function Client_GamePlayer:_updateGun()
+    -- 创建枪
+    local gun = CreateItemStack(40300, 1)
+    -- 把枪和子弹放在人身上
+    SetItemStackToInventory(1, gun)
+    for i=2,9 do
+        local bullets = CreateItemStack(50101, 999)
+        SetItemStackToInventory(i, bullets)
+    end
+end
 -----------------------------------------------------------------------------------------Client_GameMonster-----------------------------------------------------------------------------------
 function Client_GameMonster:construction(parameter)
     self.mCommandQueue = CommandQueueManager.singleton():createQueue()
-    self.mEntityID = parameter.mEntityID
-    self.mProperty = new(GameMonsterProperty, {mEntityID = self.mEntityID})
+    self.mID = parameter.mID
+    self.mProperty = new(GameMonsterProperty, {mID = self.mID})
 
+    self.mProperty:addPropertyListener(
+        "mEntityID",
+        self,
+        function(_,value)
+        end
+    )
     self.mProperty:addPropertyListener(
         "mLevel",
         self,
@@ -5344,18 +5359,6 @@ function Client_GameMonster:construction(parameter)
         "mConfigIndex",
         self,
         function(_, value)
-            if value and self:getConfig().mModel then
-                if GetEntityById(self.mEntityID) then
-                    GetEntityById(self.mEntityID)._super.SetMainAssetPath(GetEntityById(self.mEntityID),self:getConfig().mModel,6)
-                else
-                    CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "Client_GameMonster:construction/SetModel",mExecutingCallback = function(command)
-                        if GetEntityById(self.mEntityID) then
-                            GetEntityById(self.mEntityID)._super.SetMainAssetPath(GetEntityById(self.mEntityID),self:getConfig().mModel,6)
-                            command.mState = Command.EState.Finish
-                        end
-                    end}))
-                end
-            end
             self:_updateBloodUI()
         end
     )
@@ -5363,6 +5366,7 @@ function Client_GameMonster:construction(parameter)
 end
 
 function Client_GameMonster:destruction()
+    self.mProperty:removePropertyListener("mEntityID", self)
     self.mProperty:removePropertyListener("mLevel", self)
     self.mProperty:removePropertyListener("mHP", self)
     self.mProperty:removePropertyListener("mConfigIndex", self)
@@ -5375,6 +5379,9 @@ function Client_GameMonster:destruction()
 end
 
 function Client_GameMonster:update()
+    if self.mProperty:cache().mConfigIndex and self:getConfig().mModel and self.mProperty:cache().mEntityID and GetEntityById(self.mProperty:cache().mEntityID) then
+        GetEntityById(self.mProperty:cache().mEntityID)._super.SetMainAssetPath(GetEntityById(self.mProperty:cache().mEntityID),self:getConfig().mModel,6)
+    end
 end
 
 function Client_GameMonster:sendToHost(message, parameter)
@@ -5385,7 +5392,11 @@ function Client_GameMonster:receive(parameter)
 end
 
 function Client_GameMonster:getID()
-    return self.mEntityID
+    return self.mID
+end
+
+function Client_GameMonster:getProperty()
+    return self.mProperty
 end
 
 function Client_GameMonster:getConfig()
@@ -5397,10 +5408,10 @@ end
 function Client_GameMonster:onHit(weapon)
     local hit_value = GameCompute.computePlayerAttackValue(Client_Game.singleton():getPlayerManager():getPlayerByID():getProperty():cache().mAttackValueLevel)
     if
-        GetEntityById(self.mEntityID) and GetEntityById(self.mEntityID):GetInnerObject() and
-            GetEntityHeadOnObject(self.mEntityID, "OnHit/" .. tostring(self.mEntityID))
+        GetEntityById(self.mProperty:cache().mEntityID) and GetEntityById(self.mProperty:cache().mEntityID):GetInnerObject() and
+            GetEntityHeadOnObject(self.mProperty:cache().mEntityID, "OnHit/" .. tostring(self.mProperty:cache().mEntityID))
     then
-        local ui = GetEntityHeadOnObject(self.mEntityID, "OnHit/" .. tostring(self.mEntityID)):createChild(
+        local ui = GetEntityHeadOnObject(self.mProperty:cache().mEntityID, "OnHit/" .. tostring(self.mProperty:cache().mEntityID)):createChild(
             {
                 ui_name = "background",
                 type = "text",
@@ -5431,17 +5442,17 @@ function Client_GameMonster:onHit(weapon)
 end
 
 function Client_GameMonster:_getSendKey()
-    return "GameMonster/" .. tostring(self.mEntityID)
+    return "GameMonster/" .. tostring(self.mID)
 end
 
 function Client_GameMonster:_updateBloodUI()
     if
-        GetEntityById(self.mEntityID) and GetEntityById(self.mEntityID):GetInnerObject() and
-            GetEntityHeadOnObject(self.mEntityID, "Blood/" .. tostring(self.mEntityID))
+        GetEntityById(self.mProperty:cache().mEntityID) and GetEntityById(self.mProperty:cache().mEntityID):GetInnerObject() and
+            GetEntityHeadOnObject(self.mProperty:cache().mEntityID, "Blood/" .. tostring(self.mProperty:cache().mEntityID))
      then
         if not self.mBloodUI then
             self.mBloodUI =
-                GetEntityHeadOnObject(self.mEntityID, "Blood/" .. tostring(self.mEntityID)):createChild(
+                GetEntityHeadOnObject(self.mProperty:cache().mEntityID, "Blood/" .. tostring(self.mProperty:cache().mEntityID)):createChild(
                 {
                     ui_name = "background",
                     type = "container",
@@ -5457,7 +5468,7 @@ function Client_GameMonster:_updateBloodUI()
         end
         if not self.mNameUI then
             self.mNameUI =
-                GetEntityHeadOnObject(self.mEntityID, "Name/" .. tostring(self.mEntityID)):createChild(
+                GetEntityHeadOnObject(self.mProperty:cache().mEntityID, "Name/" .. tostring(self.mProperty:cache().mEntityID)):createChild(
                 {
                     ui_name = "background",
                     type = "text",
