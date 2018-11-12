@@ -3855,11 +3855,7 @@ function Host_Game:_nextMatch()
                 mDebug = "Host_Game:_nextMatch/Prepare",
                 mExecutingCallback = function(command)
                     command.mTimer = command.mTimer or new(Timer)
-                    local left_time = math.floor(GameConfig.mPrepareTime - command.mTimer:total())
-                    if command.mLeftTime ~= left_time then
-                        command.mLeftTime = left_time
-                        Tip("请抓紧时间升级您的战斗力，离开始下一关卡还有"..tostring(command.mLeftTime).."秒",1400,"255 255 0","notice")
-                    end
+                    Tip("请抓紧时间升级您的战斗力，离开始下一关卡还有"..tostring(math.floor(GameConfig.mPrepareTime - command.mTimer:total())).."秒",1400,"255 255 0","notice")
                     if command.mTimer:total() >= GameConfig.mPrepareTime then
                         command.mState = Command.EState.Finish
                     end
@@ -3894,6 +3890,7 @@ function Host_Game:_nextMatch()
                                                             end,
                                                             mExecutingCallback = function(command)
                                                                 command.mTimer = command.mTimer or new(Timer)
+                                                                Tip("全体阵亡，"..tostring(math.floor(5 - command.mTimer:total())).."秒后返回安全屋重新开始",1400,"255 255 0","notice")
                                                                 if command.mTimer:total() >= 5 then
                                                                     command.mState = Command.EState.Finish
                                                                     self:start()
@@ -3913,6 +3910,7 @@ function Host_Game:_nextMatch()
                                                             end,
                                                             mExecutingCallback = function(command)
                                                                 command.mTimer = command.mTimer or new(Timer)
+                                                                Tip("战斗胜利，"..tostring(math.floor(5 - command.mTimer:total())).."秒后返回安全屋",1400,"255 255 0","notice")
                                                                 if command.mTimer:total() >= 5 then
                                                                     command.mState = Command.EState.Finish
                                                                     self:setScene(
