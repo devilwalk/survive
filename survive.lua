@@ -4869,6 +4869,8 @@ function Client_GamePlayerManager:getPlayersSortByFightLevel()
                         b:getProperty():cache().mAttackValueLevel,
                         b:getProperty():cache().mAttackTimeLevel
                     )
+                else
+                    return false
             end
         end
     )
