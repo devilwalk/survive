@@ -4144,7 +4144,7 @@ function Host_GameMonsterManager:_createMonster(parameter)
         {
             mConfigIndex = parameter.mConfigIndex,
             mPosition = parameter.mPosition,
-            mLevel = Host_Game.singleton():getProperty():cache().mLevel
+            mLevel = GameCompute.computeMonsterLevel(Host_Game.singleton():getProperty():cache().mLevel)
         }
     )
     self.mMonsters[#self.mMonsters + 1] = ret
@@ -4493,6 +4493,7 @@ function Host_GameMonster:construction(parameter)
     elseif self:getConfig().mModel then
         self.mEntity:setLocalResource(self:getConfig().mModel,6)
     end
+    self.mEntity:SetAnimation(1);
     self.mProperty = new(GameMonsterProperty, {mEntityID = self.mEntityID})
 
     self.mProperty:safeWrite("mConfigIndex", parameter.mConfigIndex)
