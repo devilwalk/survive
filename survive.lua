@@ -1735,37 +1735,45 @@ local Client_GameMonster = {}
 GameConfig.mMonsterPointBlockID = 2101
 GameConfig.mHomePointBlockID = 2102
 GameConfig.mMonsterLibrary = {
-    {
-        mModelResource = {hash = "Fta_KeWpZ2Uut43HCCwZuhIENsUk", pid = "6723", ext = "FBX"},
-        -- mModel = "xxx/xxx/xxx/xxx"
-        mModelScaling = 2,
-        mAttackTime = 1,
-        mStopTime = 1,
-        mAttackRange = 1,
-        -- mLevelEnable = function(level)
-        --     return true
-        -- end,
-        -- mLevelDisable = function(level)
-        --     return true
-        -- end,
-        mName = "雄性菜头宝宝"
-    },
-    {
-        mModelResource = {hash = "FoHBdQE6rUCrF2BeYRxNbHRxCPPv", pid = "12199", ext = "FBX"},
-        mModelScaling = 2,
-        mAttackTime = 1,
-        mStopTime = 1,
-        mAttackRange = 1,
-        mName = "蘑菇宝宝"
-    },
-    {
-        mModelResource = {hash = "FklKvN9casvBiqCrvzMjFISaTt_1", pid = "6721", ext = "FBX"},
-        mModelScaling = 2,
-        mAttackTime = 1,
-        mStopTime = 1,
-        mAttackRange = 1,
-        mName = "皇冠蛇宝宝"
-    }
+  {mModel = "character/v3/Pet/CAITOUBB/CAITOUbb.x", mModelScaling =2, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 1 and level <= 8 then return true end end, mName = "雄性菜头宝宝"},
+  {mModel = "character/v3/Pet/CTBB/ctbb_LOD15.x", mModelScaling =2, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 9 and level <= 16 then return true end end, mName = "雌性菜头宝宝"},
+  {mModel = "character/v3/Pet/HGS/HGS_LOD15.x", mModelScaling =2, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 17 and level <= 24 then return true end end, mName = "皇冠蛇宝宝"},
+  {mModel = "character/v3/Pet/MFBB/MFBB_LOD15.x", mModelScaling =2, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 25 and level <= 32 then return true end end, mName = "蜜蜂宝宝"},
+  {mModel = "character/v3/Pet/MGBB/mgbb_LOD15.x", mModelScaling =2, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 33 and level <= 40 then return true end end, mName = "蘑菇宝宝"},
+  {mModel = "character/v3/Pet/PP/PP_LOD5.x", mModelScaling =2, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 41 and level <= 48 then return true end end, mName = "PP机器人"},
+  {mModel = "character/v3/Pet/SJTZ/SJTZ_LOD05.x", mModelScaling =2, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 49 and level <= 56 then return true end end, mName = "小精灵宝宝"},
+  {mModel = "character/v3/Pet/XGBB/XGBB_LOD5.x", mModelScaling =2, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 57 and level <= 64 then return true end end, mName = "西瓜宝宝"},
+  {mModel = "character/v3/Pet/HDL/HDL_LOD15.x", mModelScaling =2, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 65 and level <= 72 then return true end end, mName = "花朵兰宝宝"},
+  {mModel = "character/v3/Pet/YYCZ/yycz_LOD5.x", mModelScaling =2, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 73 and level <= 80 then return true end end, mName = "音乐机器人"},
+  {mModel = "character/v5/02animals/DragonBaby/DragonBabyGreen/DragonBabyGreen.x", mModelScaling =2, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 81 and level <= 88 then return true end end, mName = "绿龙宝宝"},
+  {mModel = "character/v5/02animals/DragonBaby/DragonBabyOrange/DragonBabyOrange.x", mModelScaling =2, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 89 and level <= 96 then return true end end, mName = "橙龙宝宝"},
+  {mModel = "character/v5/02animals/DragonBaby/DragonBabyYellow/DragonBabyYellow.x", mModelScaling =2, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 97 and level <= 104 then return true end end, mName = "黄龙宝宝"},
+  {mModel = "character/v3/Npc/shitouren/shitouren.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 105 and level <= 112 then return true end end, mName = "石头人"},
+  {mModel = "character/v3/GameNpc/TZMYS/TZMYS.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 113 and level <= 120 then return true end end, mName = "兔子先生"},
+  {mModel = "character/v5/02animals/Pig/Pig_V1.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 121 and level <= 128 then return true end end, mName = "猪战士"},
+  {mModel = "character/v5/02animals/Pig/Pig_V2.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 129 and level <= 136 then return true end end, mName = "猪射手"},
+  {mModel = "character/v5/02animals/JXRXLG/JXRXLG.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 137 and level <= 144 then return true end end, mName = "机械人"},
+  {mModel = "character/v5/01human/SmallWindEagle/SmallWindEagle.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 145 and level <= 152 then return true end end, mName = "小风鹰"},
+  {mModel = "character/v5/02animals/SophieDragon/SophieDragon.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 153 and level <= 160 then return true end end, mName = "索菲龙"},
+  {mModel = "character/v5/02animals/XiYiJinJiaoLong/XiYiJinJiaoLong.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 161 and level <= 168 then return true end end, mName = "蜥蜴金蛟龙"},
+  {mModel = "character/v5/06quest/DisorderRobot/DisorderRobot.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 169 and level <= 176 then return true end end, mName = "无序机器人"},
+  {mModel = "character/v5/02animals/FireBon/FireBon.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 177 and level <= 184 then return true end end, mName = "冰魔"},
+  {mModel = "character/v5/01human/Dragon/Dragon.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 185 and level <= 192 then return true end end, mName = "龙"},
+  {mModel = "character/v5/01human/Messenger/Messenger.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 193 and level <= 200 then return true end end, mName = "蘑菇妖"},
+  {mModel = "character/v3/GameNpc/XRKZS/XRKZS.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 201 and level <= 208 then return true end end, mName = "熊人战士"},
+  {mModel = "character/v3/GameNpc/BZL/BZL.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 209 and level <= 216 then return true end end, mName = "冰紫龙"},
+  {mModel = "character/v3/GameNpc/FEILONG/FEILONG.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 217 and level <= 224 then return true end end, mName = "飞龙"},
+  {mModel = "character/v3/GameNpc/HUAYAO/HUAYAO.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 225 and level <= 232 then return true end end, mName = "花妖"},
+  {mModel = "character/v5/02animals/WhiteDragon/WhiteDragon.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 233 and level <= 240 then return true end end, mName = "白龙"},
+  {mModel = "character/v5/02animals/BlueDragon/BlueDragon.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 241 and level <= 248 then return true end end, mName = "蓝龙"},
+  {mModel = "character/v5/02animals/CyanDragon/CyanDragon.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 249 and level <= 256 then return true end end, mName = "暴龙"},
+  {mModel = "character/v5/02animals/EpicDragonDeath/EpicDragonDeath.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 257 and level <= 264 then return true end end, mName = "死亡龙"},
+  {mModel = "character/v5/02animals/EpicDragonFire/EpicDragonFire.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 265 and level <= 272 then return true end end, mName = "火龙"},
+  {mModel = "character/v5/02animals/EpicDragonIce/EpicDragonIce.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 273 and level <= 280 then return true end end, mName = "冰龙"},
+  {mModel = "character/v5/02animals/EpicDragonLife/EpicDragonLife.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 281 and level <= 288 then return true end end, mName = "生命龙"},
+  {mModel = "character/v5/02animals/EpicDragonStorm/EpicDragonStorm.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 289 and level <= 296 then return true end end, mName = "雷龙"},
+  {mModel = "character/v5/02animals/GoldenDragon/GoldenDragon_02.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 297 and level <= 304 then return true end end, mName = "金属性龙"},
+  {mModel = "character/v5/02animals/GreenDragon/GreenDragon_02.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 305 and level <= 312 then return true end end, mName = "绿龙"},
 }
 GameConfig.mTerrainLibrary = {
     {mTemplateResource = {hash = "FmwBON_T9nhgYWceOETvf7_xlyou", pid = "13585", ext = "bmax"}},
@@ -3581,7 +3589,7 @@ function GameEffectManager.MonsterDead.PlayerEffect:construction(parameter)
     self.mTargetPosition = vector3d:new(parameter.mPlayerInfo.mPosition) - src_position
     self.mBillboardSet = CreateBillboardSet(src_position[1], src_position[2], src_position[3])
     self.mBillboardSet:setDefaultDimensions(1,1)
-    self.mBillboardSet:setTexture(CreateItemStack(55):GetIcon())
+    self.mBillboardSet:setTexture(CreateItemStack(142):GetIcon())
     self.mBillboards = {}
     local billboard_count = math.ceil(parameter.mPlayerInfo.mMoney / 1)
     for i=1,billboard_count do
@@ -5114,26 +5122,26 @@ function Client_GamePlayer:receive(parameter)
             if GetEntityHeadOnObject(self.mPlayerID, "AddMoney/" .. tostring(self.mPlayerID)) then
                 local ui = GetEntityHeadOnObject(self.mPlayerID, "AddMoney/" .. tostring(self.mPlayerID)):createChild(
                     {
-                        type = "text",
-                        font_type = "微软雅黑",
-                        font_color = "0 0 255",
-                        font_size = 25,
-                        align = "_ct",
-                        y = -160,
-                        x = -130,
-                        height = 50,
-                        width = 200,
-                        visible = true,
-                        text = tostring(hit_value)
+                      type = "text",
+                      font_type = "微软雅黑",
+                      font_color = "255 225 0",
+                      font_size = 50,
+                      align = "_ct",
+                      y = -80,
+                      x = -80,
+                      height = 50,
+                      width = 200,
+                      visible = true,
+                      text = "+￥"..tostring(hit_value)
                     }
                 )
                 CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "Client_GamePlayer:AddMoney/UI",mExecutingCallback = function(command)
                     command.mTimer = command.mTimer or new(Timer)
-                    if command.mTimer:total() > 3 then
+                    if command.mTimer:total() > 0.5 then
                         ui:destroy()
                         command.mState = Command.EState.Finish
                     end
-                    ui.y = -160 - 10 * command.mTimer:total()
+                    ui.y = -80 - 150 * command.mTimer:total()
                 end}))
             end
         elseif parameter.mMessage == "EnterSafeHouse" then
@@ -5150,26 +5158,26 @@ function Client_GamePlayer:receive(parameter)
             if GetEntityHeadOnObject(self.mPlayerID, "OnHit/" .. tostring(self.mPlayerID)) then
                 local ui = GetEntityHeadOnObject(self.mPlayerID, "OnHit/" .. tostring(self.mPlayerID)):createChild(
                     {
-                        type = "text",
-                        font_type = "微软雅黑",
-                        font_color = "255 0 0",
-                        font_size = 25,
-                        align = "_ct",
-                        y = -160,
-                        x = -130,
-                        height = 50,
-                        width = 200,
-                        visible = true,
-                        text = tostring(hit_value)
+                      type = "text",
+                      font_type = "微软雅黑",
+                      font_color = "255 0 0",
+                      font_size = 50,
+                      align = "_ct",
+                      y = -60,
+                      x = -80,
+                      height = 50,
+                      width = 200,
+                      visible = true,
+                      text = "-"..tostring(hit_value)
                     }
                 )
                 CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "Client_GamePlayer:OnHit/UI",mExecutingCallback = function(command)
                     command.mTimer = command.mTimer or new(Timer)
-                    if command.mTimer:total() > 3 then
+                    if command.mTimer:total() > 0.5 then
                         ui:destroy()
                         command.mState = Command.EState.Finish
                     end
-                    ui.y = -160 - 10 * command.mTimer:total()
+                    ui.y = -60 - 150 * command.mTimer:total()
                 end}))
             end
         end
@@ -5234,7 +5242,7 @@ function Client_GamePlayer:_updateBloodUI()
             {
                 ui_name = "background",
                 type = "container",
-                color = "255 0 0",
+                color = "0 255 0",
                 align = "_ct",
                 y = -150,
                 x = -150,
@@ -5339,23 +5347,23 @@ function Client_GameMonster:onHit(weapon)
                 type = "text",
                 font_type = "微软雅黑",
                 font_color = "255 0 0",
-                font_size = 25,
+                font_size = 50,
                 align = "_ct",
-                y = -160,
-                x = -130,
+                y = -100,
+                x = -80,
                 height = 50,
                 width = 200,
                 visible = true,
-                text = tostring(hit_value)
+                text = "-"..tostring(hit_value)
             }
         )
         CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "Client_GameMonster:onHit/UI",mExecutingCallback = function(command)
             command.mTimer = command.mTimer or new(Timer)
-            if command.mTimer:total() > 3 then
+            if command.mTimer:total() > 0.5 then
                 ui:destroy()
                 command.mState = Command.EState.Finish
             end
-            ui.y = -160 - 10 * command.mTimer:total()
+            ui.y = -100 - 150 * command.mTimer:total()
         end}))
     end
     local property_change = {}
