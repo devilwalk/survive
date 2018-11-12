@@ -1885,7 +1885,7 @@ local function getNextLvGold(lv)
     local goldEfficiency = lv * 20 + 40
     local nextLvGold = goldEfficiency * nextLvTime
     -- 三个技能升级
-    nextLvGold = nextLvGold/3
+    nextLvGold =processFloat(nextLvGold/3,2)
     return nextLvGold
 end
 
