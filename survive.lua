@@ -1734,6 +1734,7 @@ local Client_GameMonster = {}
 -----------------------------------------------------------------------------------------GameConfig-----------------------------------------------------------------------------------
 GameConfig.mMonsterPointBlockID = 2101
 GameConfig.mHomePointBlockID = 2102
+GameConfig.mBossPointBlockID = 2100
 GameConfig.mMonsterLibrary = {
   {mModel = "character/v3/Pet/CAITOUBB/CAITOUbb.x", mModelScaling =2, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 1 and level <= 8 then return true end end, mName = "雄性菜头宝宝"},
   {mModel = "character/v3/Pet/CTBB/ctbb_LOD15.x", mModelScaling =2, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 9 and level <= 16 then return true end end, mName = "雌性菜头宝宝"},
@@ -1777,7 +1778,7 @@ GameConfig.mMonsterLibrary = {
 }
 GameConfig.mTerrainLibrary = {
     {mTemplateResource = {hash = "FmwBON_T9nhgYWceOETvf7_xlyou", pid = "13585", ext = "bmax"}},
-    {mTemplateResource = {hash="FmZqnSegd8AKnmRayyFRsTayE1CA",pid="14763",ext="bmax",}}
+    {mTemplateResource = {hash="Fr8-MjX0r94ziGeSOjkJN0A8tz0U",pid="17982",ext="bmax",}}
 }
 GameConfig.mSafeHouse = {mTemplateResource = {hash = "FpHOk_oMV1lBqaTtMLjqAtqyzJp4", pid = "5453", ext = "bmax"}}
 GameConfig.mMatch = {
@@ -4230,6 +4231,9 @@ function Host_GameTerrain:applyTemplate(callback)
                 elseif block[4] == GameConfig.mHomePointBlockID then
                     self.mHomePoint = {block[1] + offset[1], block[2] + offset[2], block[3] + offset[3]}
                     setBlock(block[1] + offset[1], block[2] + offset[2], block[3] + offset[3], 0)
+                elseif block[4] == GameConfig.mBossPointBlockID then
+                    self.mBossPoint = {block[1] + offset[1], block[2] + offset[2], block[3] + offset[3]}
+                    setBlock(block[1] + offset[1], block[2] + offset[2], block[3] + offset[3], 0)
                 else
                     setBlock(block[1] + offset[1], block[2] + offset[2], block[3] + offset[3], block[4], block[5])
                 end
@@ -4383,10 +4387,12 @@ function Host_GamePlayer:receive(parameter)
 end
 
 function Host_GamePlayer:onHit(monster)
+    local hit_value = GameCompute.computeMonsterAttackValue(monster:getProperty():cache().mLevel)
+    self:sendToClient("OnHit",{mValue = hit_value})
     self.mProperty:safeWrite(
         "mHP",
         math.max(
-            self.mProperty:cache().mHP - GameCompute.computeMonsterAttackValue(monster:getProperty():cache().mLevel),
+            self.mProperty:cache().mHP - hit_value,
             0
         )
     )
@@ -4515,7 +4521,7 @@ function Host_GameMonster:update()
     end
     local x,y,z = self.mEntity:GetBlockPos()
     if Host_Game.singleton().mScene and y < Host_Game.singleton().mScene.mTerrain.mHomePosition[2] + 2 then
-        SetEntityBlockPos(self.mEntityID,x,Host_Game.singleton().mScene.mTerrain.mHomePosition[2] + 3,z)
+        SetEntityBlockPos(self.mEntityID,x,Host_Game.singleton().mScene.mTerrain.mHomePosition[2] + 2,z)
     end
     if
         self.mAttackTimer and
@@ -4654,7 +4660,7 @@ function Host_GameMonster:_updateMoveTarget()
             self.mEntity:MoveTo(path[2][1], my_y + 1, path[2][3])
             self.mHasTarget = true
         else
-            self.mEntity:MoveTo(select.x, select.y + 1, select.z)
+            self.mEntity:MoveTo(select.x, my_y + 1, select.z)
         end
     else
         local offset_x = math.random(-1, 1)
@@ -5132,7 +5138,7 @@ function Client_GamePlayer:receive(parameter)
                       height = 50,
                       width = 200,
                       visible = true,
-                      text = "+￥"..tostring(hit_value)
+                        text = "+￥" .. tostring(parameter.mParameter.mMoney)
                     }
                 )
                 CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "Client_GamePlayer:AddMoney/UI",mExecutingCallback = function(command)
@@ -5168,7 +5174,7 @@ function Client_GamePlayer:receive(parameter)
                       height = 50,
                       width = 200,
                       visible = true,
-                      text = "-"..tostring(hit_value)
+                        text = "-" .. tostring(parameter.mParameter.mValue)
                     }
                 )
                 CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "Client_GamePlayer:OnHit/UI",mExecutingCallback = function(command)
