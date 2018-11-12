@@ -5536,8 +5536,9 @@ end
 function clear()
     Revive()
     SetCameraMode(2)
-    SetItemStackToInventory(1, {})
-    SetItemStackToInventory(2, {})
+    for i=1,9 do
+        SetItemStackToInventory(i, {})
+    end
 
     delete(Client_Game.singleton())
     if Host_Game.singleton() then
