@@ -1847,15 +1847,19 @@ end
 
 function GameCompute.computeMonsterGenerateCount(matchLevel)
     local F2 = 20
-    local F3 = 10
-    local level = math.fmod(math.max(matchLevel,2) - 1,3)+1
-    if level == 1 then
-        return F2 - F3
-    elseif level == 2 then
-        return F2
-    else
-        return F2 + F3
-    end
+    local F3 = 10    
+  	if matchLevel == 1 then
+  		return F2 - F3 
+  	elseif matchLevel >1 then
+  		local level = (matchLevel-1)%3
+		if level == 1 then
+			return F2 - F3
+		elseif level == 2 then
+			return F2
+		else
+			return F2 + F3
+		end
+  	end
 end
 
 function GameCompute.computeMonsterGenerateCountScale(players)
