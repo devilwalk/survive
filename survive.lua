@@ -2710,7 +2710,9 @@ local gameUi = {
             local players = Client_Game.singleton():getPlayerManager():getPlayersSortByFightLevel()
             local text = ""
             for i, player in pairs(players) do
-                text = text .. tostring(i) .. "." .. GetEntityById(player:getID()).nickname .. "\n"
+                if GetEntityById(player:getID()) then
+                    text = text .. tostring(i) .. "." .. GetEntityById(player:getID()).nickname .. "\n"
+                end
             end
             return text
         end,
@@ -4520,7 +4522,7 @@ function Host_GameMonster:construction(parameter)
     if self:getConfig().mModelResource then
         self.mEntity:setModelFromResource(self:getConfig().mModelResource)
     elseif self:getConfig().mModel then
-        self.mEntity:setLocalResource(self:getConfig().mModel,6)
+        --self.mEntity:setLocalResource(self:getConfig().mModel,6)
     end
     self.mEntity:SetAnimation(1);
     self.mProperty = new(GameMonsterProperty, {mEntityID = self.mEntityID})
@@ -5333,6 +5335,18 @@ function Client_GameMonster:construction(parameter)
         "mConfigIndex",
         self,
         function(_, value)
+            if value and self:getConfig().mModel then
+                if GetEntityById(self.mEntityID) then
+                    GetEntityById(self.mEntityID)._super.SetMainAssetPath(GetEntityById(self.mEntityID),self:getConfig().mModel,6)
+                else
+                    CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "Client_GameMonster:construction/SetModel",mExecutingCallback = function(command)
+                        if GetEntityById(self.mEntityID) then
+                            GetEntityById(self.mEntityID)._super.SetMainAssetPath(GetEntityById(self.mEntityID),self:getConfig().mModel,6)
+                            command.mState = Command.EState.Finish
+                        end
+                    end}))
+                end
+            end
             self:_updateBloodUI()
         end
     )
