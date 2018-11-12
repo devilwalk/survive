@@ -1777,8 +1777,8 @@ GameConfig.mMonsterLibrary = {
   {mModel = "character/v5/02animals/GreenDragon/GreenDragon_02.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 305 and level <= 312 then return true end end, mName = "绿龙"},
 }
 GameConfig.mTerrainLibrary = {
-    {mTemplateResource = {hash = "FmwBON_T9nhgYWceOETvf7_xlyou", pid = "13585", ext = "bmax"}},
-    {mTemplateResource = {hash="Fr8-MjX0r94ziGeSOjkJN0A8tz0U",pid="17982",ext="bmax",}}
+    {mTemplateResource = {hash="Fp5wrmZ9FWIeQHKVCsHplKCigLi5",pid="18088",ext="bmax",}},
+    {mTemplateResource = {hash="FgBzGnRWsTzjqveE2UM1nQ3bsCgt",pid="18089",ext="bmax",}}
 }
 GameConfig.mSafeHouse = {mTemplateResource = {hash = "FpHOk_oMV1lBqaTtMLjqAtqyzJp4", pid = "5453", ext = "bmax"}}
 GameConfig.mMatch = {
@@ -3820,6 +3820,7 @@ function Host_Game:setScene(scene, callback)
     else
         self.mPlayerManager:setScene(self.mSafeHouse)
         self.mPlayerManager:enterSafeHouse()
+        self.mMonsterManager:setScene(self.mSafeHouse)
         callback()
     end
 end
