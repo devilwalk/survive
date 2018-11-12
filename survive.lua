@@ -1850,7 +1850,7 @@ function GameCompute.computeMonsterGenerateCount(matchLevel)
 end
 
 function GameCompute.computeMonsterGenerateCountScale(players)
-    return #players
+    return 1
 end
 
 local function getNextLvTime(lv)
@@ -4639,7 +4639,15 @@ function Host_GameMonster:_updateMoveTarget()
         end
     end
     if select then
-        self.mEntity:MoveTo(select.x, select.y + 1, select.z)
+        local path = SearchPath(my_x, 0, my_z,select.x, 0, select.z,function(x,_,z)
+            return not GetBlockId(x,my_y + 1,z) or GetBlockId(x,my_y + 1,z) == 0
+        end)
+        if path and #path > 1 then
+            self.mEntity:MoveTo(path[2][1], my_y + 1, path[2][3])
+            self.mHasTarget = true
+        else
+            self.mEntity:MoveTo(select.x, select.y + 1, select.z)
+        end
     else
         local offset_x = math.random(-1, 1)
         local offset_z = math.random(-1, 1)
