@@ -1981,7 +1981,7 @@ local gameUi = {
         align = "_ct",
         text = function()
             local text =
-                "战斗力等级:" .. tostring(saveData.mHPLevel + saveData.mAttackValueLevel + saveData.mAttackTimeLevel)
+                "战斗力等级:" .. tostring(saveData.mHPLevel + saveData.mAttackValueLevel + saveData.mAttackTimeLevel - 3)
             return text
         end,
         -- font_type = "Source Han Sans SC Bold",
@@ -2055,7 +2055,7 @@ local gameUi = {
         text = function()
             local text =
                 "生命等级:" ..
-                tostring(saveData.mHPLevel) .. "\n\n生命值：" .. tostring(GameCompute.computePlayerHP(saveData.mHPLevel))
+                tostring(saveData.mHPLevel-1) .. "\n\n生命值：" .. tostring(GameCompute.computePlayerHP(saveData.mHPLevel))
             return text
         end,
         -- font_type = "Source Han Sans SC Bold",
@@ -2165,7 +2165,7 @@ local gameUi = {
         text = function()
             local text =
                 "攻击等级:" ..
-                tostring(saveData.mAttackValueLevel) ..
+                tostring(saveData.mAttackValueLevel -1) ..
                     "\n\n攻击力：" .. tostring(GameCompute.computePlayerAttackValue(saveData.mAttackValueLevel))
             return text
         end,
@@ -2276,7 +2276,7 @@ local gameUi = {
         text = function()
             local text =
                 "攻速等级:" ..
-                tostring(saveData.mAttackTimeLevel) ..
+                tostring(saveData.mAttackTimeLevel-1) ..
                     "\n\n攻速提升：" ..
                         tostring(GameCompute.computePlayerAttackTimePercent(saveData.mAttackTimeLevel)) .. "%"
             return text
@@ -2371,9 +2371,36 @@ local gameUi = {
         align = "_lb",
         y = -10,
         x = 10,
-        height = 200,
+        height = 250,
         width = 300,
         visible = true
+    },
+    {
+        ui_name = "state_current_gold",
+        type = "Text",
+        align = "_lb",
+        text = function()
+            local text = "金钱：" .. tostring(processFloat(saveData.mMoney, 2))
+            return text
+        end,
+        -- font_type = "Source Han Sans SC Bold",
+        font_size = 30,
+        x = function()
+            return getUiValue("state_background", "x") + 0
+        end,
+        y = function()
+            return getUiValue("state_background", "y") - 170
+        end,
+        font_bold = true,
+        height = 70,
+        width = 500,
+        text_format = 0,
+        --text_border = true,
+        shadow = true,
+        font_color = "255 215 0",
+        visible = function()
+            return getUiValue("state_background", "visible")
+        end
     },
     {
         ui_name = "state_fightingLevel",
@@ -2381,7 +2408,7 @@ local gameUi = {
         align = "_lb",
         text = function()
             local text =
-                "战斗力等级:" .. tostring(saveData.mHPLevel + saveData.mAttackValueLevel + saveData.mAttackTimeLevel)
+                "战斗力等级:" .. tostring(saveData.mHPLevel + saveData.mAttackValueLevel + saveData.mAttackTimeLevel -3)
             return text
         end,
         -- font_type = "Source Han Sans SC Bold",
@@ -2410,15 +2437,15 @@ local gameUi = {
         text = function()
             local text =
                 "生命(Lv" ..
-                tostring(saveData.mHPLevel) ..
+                tostring(saveData.mHPLevel-1) ..
                     ")：" ..
                         tostring(GameCompute.computePlayerHP(saveData.mHPLevel)) ..
                             "\n攻击(lv" ..
-                                tostring(saveData.mAttackValueLevel) ..
+                                tostring(saveData.mAttackValueLevel-1) ..
                                     ")：" ..
                                         tostring(GameCompute.computePlayerAttackValue(saveData.mAttackValueLevel)) ..
                                             "\n攻速(lv" ..
-                                                tostring(saveData.mAttackTimeLevel) ..
+                                                tostring(saveData.mAttackTimeLevel-1) ..
                                                     ")：" ..
                                                         tostring(
                                                             GameCompute.computePlayerAttackTimePercent(
@@ -2717,9 +2744,9 @@ local gameUi = {
                     text ..
                     tostring(
                         GameCompute.computePlayerFightLevel(
-                            player:getProperty():cache().mHPLevel or 1,
-                            player:getProperty():cache().mAttackValueLevel or 1,
-                            player:getProperty():cache().mAttackTimeLevel or 1
+                            player:getProperty():cache().mHPLevel-1 or 0,
+                            player:getProperty():cache().mAttackValueLevel-1 or 0,
+                            player:getProperty():cache().mAttackTimeLevel-1 or 0
                         )
                     ) ..
                         "\n"
@@ -3323,7 +3350,8 @@ local gameUi = {
         shadow = true,
         font_color = "255 255 255",
         visible = function()
-            return getUiValue("voteLevel_background", "visible")
+            return false
+            -- return getUiValue("voteLevel_background", "visible")
         end
     },
     {
@@ -5143,7 +5171,7 @@ function Client_GamePlayer:receive(parameter)
                 )
                 CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "Client_GamePlayer:AddMoney/UI",mExecutingCallback = function(command)
                     command.mTimer = command.mTimer or new(Timer)
-                    if command.mTimer:total() > 0.5 then
+                    if command.mTimer:total() > 0.8 then
                         ui:destroy()
                         command.mState = Command.EState.Finish
                     end
@@ -5179,7 +5207,7 @@ function Client_GamePlayer:receive(parameter)
                 )
                 CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "Client_GamePlayer:OnHit/UI",mExecutingCallback = function(command)
                     command.mTimer = command.mTimer or new(Timer)
-                    if command.mTimer:total() > 0.5 then
+                    if command.mTimer:total() > 0.8 then
                         ui:destroy()
                         command.mState = Command.EState.Finish
                     end
@@ -5250,7 +5278,7 @@ function Client_GamePlayer:_updateBloodUI()
                 type = "container",
                 color = "0 255 0",
                 align = "_ct",
-                y = -150,
+                y = -50,
                 x = -150,
                 height = 20,
                 width = 200,
