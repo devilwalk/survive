@@ -5103,6 +5103,31 @@ function Client_GamePlayer:receive(parameter)
             local saved_data = getSavedData()
             saved_data.mMoney = saved_data.mMoney + parameter.mParameter.mMoney
             self.mProperty:safeWrite("mMoney", saved_data.mMoney)
+            if GetEntityHeadOnObject(self.mPlayerID, "AddMoney/" .. tostring(self.mPlayerID)) then
+                local ui = GetEntityHeadOnObject(self.mPlayerID, "AddMoney/" .. tostring(self.mPlayerID)):createChild(
+                    {
+                        type = "text",
+                        font_type = "微软雅黑",
+                        font_color = "0 0 255",
+                        font_size = 25,
+                        align = "_ct",
+                        y = -160,
+                        x = -130,
+                        height = 50,
+                        width = 200,
+                        visible = true,
+                        text = tostring(hit_value)
+                    }
+                )
+                CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "Client_GamePlayer:AddMoney/UI",mExecutingCallback = function(command)
+                    command.mTimer = command.mTimer or new(Timer)
+                    if command.mTimer:total() > 3 then
+                        ui:destroy()
+                        command.mState = Command.EState.Finish
+                    end
+                    ui.y = -160 - 10 * command.mTimer:total()
+                end}))
+            end
         elseif parameter.mMessage == "EnterSafeHouse" then
             SetCameraMode(2)
             setUiValue("upgrade_background", "visible", true)
@@ -5113,6 +5138,32 @@ function Client_GamePlayer:receive(parameter)
             setUiValue("upgrade_background", "visible", false)
             --setUiValue("chooseLevel_background", "visible", false)
             setUiValue("levelInfo_background", "visible", true)
+        elseif parameter.mMessage == "OnHit" then
+            if GetEntityHeadOnObject(self.mPlayerID, "OnHit/" .. tostring(self.mPlayerID)) then
+                local ui = GetEntityHeadOnObject(self.mPlayerID, "OnHit/" .. tostring(self.mPlayerID)):createChild(
+                    {
+                        type = "text",
+                        font_type = "微软雅黑",
+                        font_color = "255 0 0",
+                        font_size = 25,
+                        align = "_ct",
+                        y = -160,
+                        x = -130,
+                        height = 50,
+                        width = 200,
+                        visible = true,
+                        text = tostring(hit_value)
+                    }
+                )
+                CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "Client_GamePlayer:OnHit/UI",mExecutingCallback = function(command)
+                    command.mTimer = command.mTimer or new(Timer)
+                    if command.mTimer:total() > 3 then
+                        ui:destroy()
+                        command.mState = Command.EState.Finish
+                    end
+                    ui.y = -160 - 10 * command.mTimer:total()
+                end}))
+            end
         end
     end
 end
@@ -5269,11 +5320,38 @@ function Client_GameMonster:getConfig()
 end
 
 function Client_GameMonster:onHit(weapon)
+    local hit_value = GameCompute.computePlayerAttackValue(Client_Game.singleton():getPlayerManager():getPlayerByID():getProperty():cache().mAttackValueLevel)
+    if
+        GetEntityById(self.mEntityID) and GetEntityById(self.mEntityID):GetInnerObject() and
+            GetEntityHeadOnObject(self.mEntityID, "OnHit/" .. tostring(self.mEntityID))
+    then
+        local ui = GetEntityHeadOnObject(self.mEntityID, "OnHit/" .. tostring(self.mEntityID)):createChild(
+            {
+                ui_name = "background",
+                type = "text",
+                font_type = "微软雅黑",
+                font_color = "255 0 0",
+                font_size = 25,
+                align = "_ct",
+                y = -160,
+                x = -130,
+                height = 50,
+                width = 200,
+                visible = true,
+                text = tostring(hit_value)
+            }
+        )
+        CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "Client_GameMonster:onHit/UI",mExecutingCallback = function(command)
+            command.mTimer = command.mTimer or new(Timer)
+            if command.mTimer:total() > 3 then
+                ui:destroy()
+                command.mState = Command.EState.Finish
+            end
+            ui.y = -160 - 10 * command.mTimer:total()
+        end}))
+    end
     local property_change = {}
-    property_change.mHPSubtract =
-        GameCompute.computePlayerAttackValue(
-        Client_Game.singleton():getPlayerManager():getPlayerByID():getProperty():cache().mAttackValueLevel
-    )
+    property_change.mHPSubtract = hit_value
     self:sendToHost("PropertyChange", property_change)
 end
 
