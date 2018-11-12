@@ -2745,9 +2745,9 @@ local gameUi = {
                     text ..
                     tostring(
                         GameCompute.computePlayerFightLevel(
-                            player:getProperty():cache().mHPLevel-1 or 0,
-                            player:getProperty():cache().mAttackValueLevel-1 or 0,
-                            player:getProperty():cache().mAttackTimeLevel-1 or 0
+                            (player:getProperty():cache().mHPLevel or 1)-1,
+                            (player:getProperty():cache().mAttackValueLevel or 1)-1,
+                            (player:getProperty():cache().mAttackTimeLevel or 1)-1
                         )
                     ) ..
                         "\n"
