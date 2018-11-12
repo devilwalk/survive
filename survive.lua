@@ -2096,10 +2096,10 @@ local gameUi = {
             return getUiValue("upgrade_HP_background", "y") + 140
         end,
         onclick = function()
-            local money = getNextLvGold(getSavedData().mHPLevel)
-            if getSavedData().mMoney >= money then
-                getSavedData().mMoney = getSavedData().mMoney - money
-                getSavedData().mHPLevel = getSavedData().mHPLevel + 1
+            local money = getNextLvGold(saveData.mHPLevel)
+            if saveData.mMoney >= money then
+                saveData.mMoney = saveData.mMoney - money
+                saveData.mHPLevel = saveData.mHPLevel + 1
             end
         end,
         font_bold = true,
@@ -2118,7 +2118,7 @@ local gameUi = {
         type = "Text",
         align = "_ct",
         text = function()
-            local text = "需要金钱：" .. tostring(getNextLvGold(getSavedData().mHPLevel))
+            local text = "需要金钱：" .. tostring(getNextLvGold(saveData.mHPLevel or 1))
             return text
         end,
         -- font_type = "Source Han Sans SC Bold",
@@ -2207,10 +2207,10 @@ local gameUi = {
             return getUiValue("upgrade_attack_background", "y") + 140
         end,
         onclick = function()
-            local money = getNextLvGold(getSavedData().mAttackValueLevel)
-            if getSavedData().mMoney >= money then
-                getSavedData().mMoney = getSavedData().mMoney - money
-                getSavedData().mAttackValueLevel = getSavedData().mAttackValueLevel + 1
+            local money = getNextLvGold(saveData.mAttackValueLevel)
+            if saveData.mMoney >= money then
+                saveData.mMoney = saveData.mMoney - money
+                saveData.mAttackValueLevel = saveData.mAttackValueLevel + 1
             end
         end,
         font_bold = true,
@@ -2229,7 +2229,7 @@ local gameUi = {
         type = "Text",
         align = "_ct",
         text = function()
-            local text = "需要金钱：" .. tostring(getNextLvGold(getSavedData().mAttackValueLevel))
+            local text = "需要金钱：" .. tostring(getNextLvGold(saveData.mAttackValueLevel or 1))
             return text
         end,
         -- font_type = "Source Han Sans SC Bold",
@@ -2319,10 +2319,10 @@ local gameUi = {
             return getUiValue("upgrade_attSpeed_background", "y") + 140
         end,
         onclick = function()
-            local money = getNextLvGold(getSavedData().mAttackTimeLevel)
-            if getSavedData().mMoney >= money then
-                getSavedData().mMoney = getSavedData().mMoney - money
-                getSavedData().mAttackTimeLevel = getSavedData().mAttackTimeLevel + 1
+            local money = getNextLvGold(saveData.mAttackTimeLevel)
+            if saveData.mMoney >= money then
+                saveData.mMoney = saveData.mMoney - money
+                saveData.mAttackTimeLevel = saveData.mAttackTimeLevel + 1
             end
         end,
         font_bold = true,
@@ -2341,7 +2341,7 @@ local gameUi = {
         type = "Text",
         align = "_ct",
         text = function()
-            local text = "需要金钱：" .. tostring(getNextLvGold(getSavedData().mAttackTimeLevel))
+            local text = "需要金钱：" .. tostring(getNextLvGold(saveData.mAttackTimeLevel or 1))
             return text
         end,
         -- font_type = "Source Han Sans SC Bold",
