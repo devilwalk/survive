@@ -1828,7 +1828,7 @@ end
 
 function GameCompute.computeMonsterHP(level)
     local C8 = GameCompute.computePlayerAttackValue(level)
-    local B3 = 3
+    local B3 = 2
     local D8 = GameCompute.computePlayerAttackTime(level)
     return C8 * B3 / D8
 end
@@ -1879,18 +1879,20 @@ local function getNextLvTime(lv)
 end
 
 local function getNextLvGold(lv)
-    local C3 = 3
+    local C2 = 2
     local nextLvTime = getNextLvTime(lv)
-    local killEfficiency = C3 / 60
+    local killEfficiency = C2 / 60
     local goldEfficiency = lv * 20 + 40
     local nextLvGold = goldEfficiency * nextLvTime
+    -- 三个技能升级
+    nextLvGold = nextLvGold/3
     return nextLvGold
 end
 
 function monLootGold(lv)
-    local C3 = 3
+    local C2 = 2
     local nextLvTime = getNextLvTime(lv)
-    local killEfficiency = C3 / 60
+    local killEfficiency = C2 / 60
     local goldEfficiency = lv * 20 + 40
     local nextLvGold = goldEfficiency * nextLvTime
     local nextLvMonNum = nextLvTime / killEfficiency
