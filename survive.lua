@@ -2280,7 +2280,7 @@ GameConfig.mMonsterLibrary = {
 }
 GameConfig.mTerrainLibrary = {
     {mTemplateResource = {hash="FjSzbfpww1S3GAl4lPEniRIsL7nI",pid="18337",ext="bmax",}},
-    {mTemplateResource = {hash="FmUBdvkP3gLjaCFqxXPV-NnjKMNl",pid="18246",ext="bmax",}},
+    {mTemplateResource = {hash="FiR4Dr3SzSUP1lSyYqwea3kY0Gt_",pid="18348",ext="bmax",}},
     {mTemplateResource = {hash="FrjOcjFP-C4TyfVtl49khSMvtU8a",pid="18319",ext="bmax",}}
 }
 GameConfig.mSafeHouse = {mTemplateResource = {hash = "FpHOk_oMV1lBqaTtMLjqAtqyzJp4", pid = "5453", ext = "bmax"}}
@@ -2368,6 +2368,11 @@ end
 
 function GameCompute.computeMonsterGenerateCountScale(players)
     return 1
+end
+
+function GameCompute.computeMatchSuccessMoney(matchLevel,playerCount)
+    playerCount = math.max(playerCount,2)
+    return GameCompute.computeMonsterGenerateCount(matchLevel)*monLootGold(GameCompute.computeMonsterLevel(matchLevel))*(playerCount - 1)/playerCount
 end
 
 local function getNextLvTime(lv)
@@ -4427,7 +4432,8 @@ function Host_Game:_nextMatch()
                                                 )
                                                 command.mState = Command.EState.Finish
                                             elseif self.mMonsterManager:isAllDead() then
-                                                self:broadcast("FightSuccess")
+                                                self.mPlayerManager:eachPlayer("addMoney",GameCompute.computeMatchSuccessMoney(self.mProperty:cache().mLevel,#self.mPlayerManager.mPlayers))
+                                                self:broadcast("FightSuccess",{mAddMoney = GameCompute.computeMatchSuccessMoney(self.mProperty:cache().mLevel,#self.mPlayerManager.mPlayers)})
                                                 self.mCommandQueue:post(
                                                     new(
                                                         Command_Callback,
@@ -5346,7 +5352,7 @@ function Client_Game:receive(parameter)
                     mExecutingCallback = function(command)
                         command.mTimer = command.mTimer or new(Timer)
                         Tip(
-                                                                    "战斗胜利，" ..
+                                                                    "战斗胜利，通关奖励：￥" .. tostring(math.floor(parameter.mParameter.mAddMoney)) .."，" ..
                                                                         tostring(math.floor(5 - command.mTimer:total())) ..
                                                                             "秒后返回安全屋",
                                                                     1400,
@@ -5843,7 +5849,7 @@ function Client_GamePlayer:receive(parameter)
                         height = 50,
                         width = 200,
                         visible = true,
-                        text = "+￥" .. tostring(parameter.mParameter.mMoney)
+                        text = "+￥" .. tostring(processFloat(parameter.mParameter.mMoney,2))
                     }
                 )
                 CommandQueueManager.singleton():post(
