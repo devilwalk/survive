@@ -5235,7 +5235,11 @@ function Host_GameMonster:_updateMoveTarget()
             0,
             select.z,
             function(x, _, z)
-                return not GetBlockId(x, my_y + 1, z) or GetBlockId(x, my_y + 1, z) == 0
+                if math.abs(x - my_x) < 20 and math.abs(z - my_z) < 20 then
+                    return not GetBlockId(x, my_y + 1, z) or GetBlockId(x, my_y + 1, z) == 0
+                else
+                    return false
+                end
             end
         )
         if path and #path > 1 then
