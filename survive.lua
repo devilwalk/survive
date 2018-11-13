@@ -2279,13 +2279,14 @@ GameConfig.mMonsterLibrary = {
     }
 }
 GameConfig.mTerrainLibrary = {
-    {mTemplateResource = {hash="Fn7p2rlwJ9zCQQCn3hiikPy6IbhF",pid="18245",ext="bmax",}},
+    {mTemplateResource = {hash="Fj52YxvPbfkoGqqnyZ3uO9Y1bL3n",pid="18318",ext="bmax",}},
     {mTemplateResource = {hash="FmUBdvkP3gLjaCFqxXPV-NnjKMNl",pid="18246",ext="bmax",}},
-    {mTemplateResource = {hash="FhZi1ANMq18lfPr7Ou44m1-gKeOh",pid="18253",ext="bmax",}}
+    {mTemplateResource = {hash="FrjOcjFP-C4TyfVtl49khSMvtU8a",pid="18319",ext="bmax",}}
 }
 GameConfig.mSafeHouse = {mTemplateResource = {hash = "FpHOk_oMV1lBqaTtMLjqAtqyzJp4", pid = "5453", ext = "bmax"}}
 GameConfig.mMatch = {
-    mMonsterGenerateSpeed = 0.9
+    mMonsterGenerateSpeed = 0.9,
+    mTime = 300
 }
 GameConfig.mPlayers = {
     {mType = "战士", mHP = 70, mAttack = {mType = "穿刺", mValue = 10}, mDefence = {{mType = "物理", mValue = 0}}},
@@ -3090,7 +3091,7 @@ local gameUi = {
         type = "Text",
         align = "_ctt",
         text = function()
-            local text = "剩余时间：9999"
+            local text = "剩余时间：" .. tostring(math.floor(Client_Game.singleton():getProperty():cache().mFightLeftTime or GameConfig.mMatch.mTime)) .. "秒"
             return text
         end,
         -- font_type = "Source Han Sans SC Bold",
@@ -3109,8 +3110,7 @@ local gameUi = {
         shadow = true,
         font_color = "255 255 255",
         visible = function()
-            return false
-            -- return getUiValue("levelInfo_background", "visible")
+            return getUiValue("levelInfo_background", "visible")
         end
     },
     {
@@ -4290,6 +4290,7 @@ function Host_Game:destruction()
     self.mProperty:safeWrite("mLevel")
     self.mProperty:safeWrite("mState")
     self.mProperty:safeWrite("mSafeHouseLeftTime")
+    self.mProperty:safeWrite("mFightLeftTime")
     delete(self.mProperty)
     Host.removeListener("Game",self)
     Host_Game.msInstance = nil
@@ -4335,7 +4336,8 @@ function Host_Game:setScene(scene, callback)
     end
     self.mScene = scene
     if self.mScene then
-        self.mProperty:safeWrite("mState","Fighting")
+        self.mProperty:safeWrite("mState","Fight")
+        self.mProperty:safeWrite("mFightLeftTime",GameConfig.mMatch.mTime)
         self.mProperty:safeWrite("mSafeHouseLeftTime")
         self.mScene.mTerrain:applyTemplate(
             function()
@@ -4403,6 +4405,7 @@ function Host_Game:_nextMatch()
                                         mTimeOutProcess = function()
                                         end,
                                         mExecutingCallback = function(command)
+                                            command.mTimer = command.mTimer or new(Timer)
                                             if self.mPlayerManager:isAllDead() then
                                                 self:broadcast("FightFail")
                                                 self.mCommandQueue:post(
@@ -4452,6 +4455,29 @@ function Host_Game:_nextMatch()
                                                     )
                                                 )
                                                 command.mState = Command.EState.Finish
+                                            else
+                                                self.mProperty:safeWrite("mFightLeftTime",GameConfig.mMatch.mTime - command.mTimer:total())
+                                                if command.mTimer:total() >= GameConfig.mMatch.mTime then
+                                                    self:broadcast("FightFail")
+                                                    self.mCommandQueue:post(
+                                                        new(
+                                                            Command_Callback,
+                                                            {
+                                                                mDebug = "Host_Game:_nextMatch/Restart",
+                                                                mTimeOutProcess = function()
+                                                                end,
+                                                                mExecutingCallback = function(command)
+                                                                    command.mTimer = command.mTimer or new(Timer)
+                                                                    if command.mTimer:total() >= 5 then
+                                                                        command.mState = Command.EState.Finish
+                                                                        self:start()
+                                                                    end
+                                                                end
+                                                            }
+                                                        )
+                                                    )
+                                                    command.mState = Command.EState.Finish
+                                                end
                                             end
                                         end
                                     }
@@ -5271,6 +5297,12 @@ function Client_Game:construction()
         function(_, value)
         end
     )
+    self.mProperty:addPropertyListener(
+        "mFightLeftTime",
+        self,
+        function(_, value)
+        end
+    )
     Client.addListener("Game",self)
 end
 
@@ -5284,6 +5316,7 @@ function Client_Game:destruction()
     self.mProperty:removePropertyListener("mLevel")
     self.mProperty:removePropertyListener("mState")
     self.mProperty:removePropertyListener("mSafeHouseLeftTime")
+    self.mProperty:removePropertyListener("mFightLeftTime")
     delete(self.mProperty)
     Client.removeListener("Game",self)
     Client_Game.msInstance = nil
@@ -5658,7 +5691,7 @@ function Client_GamePlayer:construction(parameter)
             end
         )
         Client_Game.singleton():getProperty():addPropertyListener("mState",self,function(_,value)
-            if value == "Fighting" then
+            if value == "Fight" then
                 SetCameraMode(3)
                 setUiValue("upgrade_background", "visible", false)
                 --setUiValue("chooseLevel_background", "visible", false)
@@ -5775,6 +5808,9 @@ function Client_GamePlayer:update()
         end
         if WeaponSystem.get(1) and WeaponSystem.get(1):getAmmoCount() == 0 then
             Tip("按R键重装子弹", 3000, "255 255 0", "reload")
+        end
+        if self.mProperty:cache().mHP and self.mProperty:cache().mHP <=0 then
+            Tip("你已经死亡，需要等待关卡结束后复活......", 3000, "255 255 0", "die")
         end
     end
 end
