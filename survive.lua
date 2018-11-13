@@ -4660,7 +4660,7 @@ function Host_GameMonsterManager:setScene(scene)
             Host_GameMonsterGenerator,
             {
                 mPositions = scene.mTerrain:getMonsterPoints(),
-                mGenerateSpeed = GameConfig.mMatch.mMonsterGenerateSpeed,
+                mGenerateSpeed = GameConfig.mMatch.mMonsterGenerateSpeed * #Host_Game.singleton():getPlayerManager().mPlayers,
                 mGenerateCount = GameCompute.computeMonsterGenerateCount(
                     Host_Game.singleton():getProperty():cache().mLevel
                 ) * GameCompute.computeMonsterGenerateCountScale(Host_Game.singleton():getPlayerManager().mPlayers)
