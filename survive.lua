@@ -1,5 +1,6 @@
 local WeaponSystem = require("WeaponSystem")
 local GUI = require("GUI")
+local MiniGameUISystem = InitMiniGameUISystem()
 --local DEBUG=true
 -----------------------------------------------------------------------------------------Common Function--------------------------------------------------------------------------------
 local function assert(boolean, message)
@@ -139,6 +140,7 @@ local Client = {}
 local GlobalProperty = {}
 local InputManager = {}
 local PlayerManager = {}
+local UI = {}
 -----------------------------------------------------------------------------------------Framework-----------------------------------------------------------------------------------
 function Framework.singleton()
     if not Framework.msInstance then
@@ -157,6 +159,7 @@ function Framework:destruction()
     PlayerManager.clear()
     delete(CommandQueueManager.singleton())
     delete(EntityCustomManager.singleton())
+    MiniGameUISystem.shutdown()
 end
 
 function Framework:update()
@@ -1743,6 +1746,87 @@ function PlayerManager.notify(eventType, parameter)
         end
     end
 end
+-----------------------------------------------------------------------------------------Game UI-----------------------------------------------------------------------------------------
+function UI.messageBox(text, img)
+    if UI.mMessageBox then
+        UI.mMessageBoxMessageQueue = UI.mMessageBoxMessageQueue or {}
+        UI.mMessageBoxMessageQueue[#UI.mMessageBoxMessageQueue + 1] = text
+        return
+    end
+    UI.mMessageBox = MiniGameUISystem.createWindow("UI/MessageBox", "_ct", 0, 0, 600, 400)
+    UI.mMessageBox:setZOrder(500)
+    local background = UI.mMessageBox:createUI("Picture", "UI/MessageBox/Picture", "_lt", 0, 0, 600, 400)
+    background:setBackgroundResource(255, 0, 0, 0, 0, "Fk2ztiR-hKdBug6TWtytWvAGu3mr")
+    if img then
+        local image =
+            UI.mMessageBox:createUI("Picture", "UI/MessageBox/Picture/Image", "_lt", 50, 100, 500, 200, background)
+        image:setBackgroundResource(img.pid, 0, 0, 0, 0, img.hash)
+    end
+    local info = UI.mMessageBox:createUI("Text", "UI/MessageBox/Text", "_lt", 0, 0, 600, 90, background)
+    info:setTextFormat(5)
+    info:setFontSize(25)
+    info:setText(text)
+    info:setFontColour("255 255 255")
+    local button = UI.mMessageBox:createUI("Button", "UI/MessageBox/Button", "_lt", 250, 300, 100, 100, background)
+    button:setBackgroundResource(257, 0, 0, 0, 0, "FtFq7Cxh7NP2JrWjJX2zUPdWFwJ7")
+    button:addEventFunction(
+        "onclick",
+        function()
+            MiniGameUISystem.destroyWindow(UI.mMessageBox)
+            UI.mMessageBox = nil
+            if UI.mMessageBoxMessageQueue and UI.mMessageBoxMessageQueue[1] then
+                local new_text = UI.mMessageBoxMessageQueue[1]
+                table.remove(UI.mMessageBoxMessageQueue, 1)
+                UI.messageBox(new_text)
+            end
+        end
+    )
+end
+
+function UI.yesOrNo(text, yesCallback, noCallback)
+    if UI.mYesOrNo then
+        MiniGameUISystem.destroyWindow(UI.mYesOrNo)
+        UI.mYesOrNo = nil
+    end
+    if not text and not yesCallback and not noCallback then
+        return
+    end
+    UI.mYesOrNo = MiniGameUISystem.createWindow("UI/YesOrNo", "_ct", 0, 0, 600, 400)
+    UI.mYesOrNo:setZOrder(400)
+    local background = UI.mYesOrNo:createUI("Picture", "UI/YesOrNo/Picture", "_lt", 0, 0, 600, 400)
+    background:setBackgroundResource(255, 0, 0, 0, 0, "Fk2ztiR-hKdBug6TWtytWvAGu3mr")
+    local info = UI.mYesOrNo:createUI("Text", "UI/YesOrNo/Text", "_lt", 0, 0, 600, 90, background)
+    info:setTextFormat(5)
+    info:setFontSize(25)
+    info:setText(text)
+    info:setFontColour("255 255 255")
+    local button_yes = UI.mYesOrNo:createUI("Button", "UI/YesOrNo/Button/Yes", "_lt", 200, 300, 100, 100, background)
+    button_yes:setFontSize(25)
+    button_yes:setBackgroundResource(258, 0, 0, 0, 0, "FsDME5crdZJOkcnSw7vIx6MMncrY")
+    button_yes:addEventFunction(
+        "onclick",
+        function()
+            MiniGameUISystem.destroyWindow(UI.mYesOrNo)
+            UI.mYesOrNo = nil
+            if yesCallback then
+                yesCallback()
+            end
+        end
+    )
+    local button_no = UI.mYesOrNo:createUI("Button", "UI/YesOrNo/Button/No", "_lt", 400, 300, 100, 100, background)
+    button_no:setFontSize(25)
+    button_no:setBackgroundResource(259, 0, 0, 0, 0, "FuANimWrOhUgBl-GgrqeQuc1YuRn")
+    button_no:addEventFunction(
+        "onclick",
+        function()
+            MiniGameUISystem.destroyWindow(UI.mYesOrNo)
+            UI.mYesOrNo = nil
+            if noCallback then
+                noCallback()
+            end
+        end
+    )
+end
 -----------------------------------------------------------------------------------------Table Define-----------------------------------------------------------------------------------
 local GameConfig = {}
 local GameCompute = {}
@@ -2279,9 +2363,9 @@ GameConfig.mMonsterLibrary = {
     }
 }
 GameConfig.mTerrainLibrary = {
-    {mTemplateResource = {hash="FjSzbfpww1S3GAl4lPEniRIsL7nI",pid="18337",ext="bmax",}},
-    {mTemplateResource = {hash="FiR4Dr3SzSUP1lSyYqwea3kY0Gt_",pid="18348",ext="bmax",}},
-    {mTemplateResource = {hash="FrjOcjFP-C4TyfVtl49khSMvtU8a",pid="18319",ext="bmax",}}
+    {mTemplateResource = {hash = "FjSzbfpww1S3GAl4lPEniRIsL7nI", pid = "18337", ext = "bmax"}},
+    {mTemplateResource = {hash = "FiR4Dr3SzSUP1lSyYqwea3kY0Gt_", pid = "18348", ext = "bmax"}},
+    {mTemplateResource = {hash = "FrjOcjFP-C4TyfVtl49khSMvtU8a", pid = "18319", ext = "bmax"}}
 }
 GameConfig.mSafeHouse = {mTemplateResource = {hash = "FpHOk_oMV1lBqaTtMLjqAtqyzJp4", pid = "5453", ext = "bmax"}}
 GameConfig.mMatch = {
@@ -2297,6 +2381,7 @@ GameConfig.mPlayers = {
 GameConfig.mPrepareTime = 15
 GameConfig.mBullet = {mModelResource = {hash = "FkgiJVNeYnWcWW68sMUEI7dRGjSE", pid = "14307", ext = "bmax"}}
 GameConfig.mHitEffect = {mModel = "character/v5/09effect/ceshi/fire/2/OnHit.x", mModelScaling = 0.7}
+GameConfig.mSwitchLevelTime = 5
 -----------------------------------------------------------------------------------------GameCompute-----------------------------------------------------------------------------------
 function GameCompute.computePlayerHP(level)
     return 7 / GameCompute.computeMonsterAttackTime() * GameCompute.computeMonsterAttackValue(level)
@@ -2370,9 +2455,12 @@ function GameCompute.computeMonsterGenerateCountScale(players)
     return 1
 end
 
-function GameCompute.computeMatchSuccessMoney(matchLevel,playerCount)
-    playerCount = math.max(playerCount,2)
-    return GameCompute.computeMonsterGenerateCount(matchLevel)*monLootGold(GameCompute.computeMonsterLevel(matchLevel))*(playerCount - 1)/playerCount
+function GameCompute.computeMatchSuccessMoney(matchLevel, playerCount)
+    playerCount = math.max(playerCount, 2)
+    return GameCompute.computeMonsterGenerateCount(matchLevel) *
+        monLootGold(GameCompute.computeMonsterLevel(matchLevel)) *
+        (playerCount - 1) /
+        playerCount
 end
 
 local function getNextLvTime(lv)
@@ -3096,7 +3184,12 @@ local gameUi = {
         type = "Text",
         align = "_ctt",
         text = function()
-            local text = "剩余时间：" .. tostring(math.floor(Client_Game.singleton():getProperty():cache().mFightLeftTime or GameConfig.mMatch.mTime)) .. "秒"
+            local text =
+                "剩余时间：" ..
+                tostring(
+                    math.floor(Client_Game.singleton():getProperty():cache().mFightLeftTime or GameConfig.mMatch.mTime)
+                ) ..
+                    "秒"
             return text
         end,
         -- font_type = "Source Han Sans SC Bold",
@@ -3137,6 +3230,7 @@ local gameUi = {
             return getUiValue("levelInfo_background", "y") + 5
         end,
         onclick = function()
+            setUiValue("chooseLevel_background", "visible", true)
         end,
         font_bold = true,
         height = 40,
@@ -3146,8 +3240,7 @@ local gameUi = {
         shadow = true,
         font_color = "255 255 255",
         visible = function()
-            return false
-            -- return getUiValue("levelInfo_background", "visible")
+            return getUiValue("levelInfo_background", "visible")
         end
     },
     -- 排行榜
@@ -4275,7 +4368,7 @@ function Host_Game:construction()
             self:start()
         end
     )
-    Host.addListener("Game",self)
+    Host.addListener("Game", self)
 end
 
 function Host_Game:destruction()
@@ -4296,8 +4389,9 @@ function Host_Game:destruction()
     self.mProperty:safeWrite("mState")
     self.mProperty:safeWrite("mSafeHouseLeftTime")
     self.mProperty:safeWrite("mFightLeftTime")
+    self.mProperty:safeWrite("mSwitchLevel")
     delete(self.mProperty)
-    Host.removeListener("Game",self)
+    Host.removeListener("Game", self)
     Host_Game.msInstance = nil
 end
 
@@ -4319,8 +4413,54 @@ function Host_Game:update(deltaTime)
     end
 end
 
-function Host_Game:broadcast(message,parameter)
+function Host_Game:receive(parameter)
+    if parameter.mMessage == "SwitchLevelRequest" then
+        if self.mSwitchLevelRequester then
+            self:sendToClient(parameter.mFrom, "SwitchLevelRequest_Response", {mResult = false})
+        else
+            self:sendToClient(parameter.mFrom, "SwitchLevelRequest_Response", {mResult = true})
+            self.mSwitchLevelRequester = parameter.mFrom
+            self:broadcast(
+                "SwitchLevel",
+                {mRequester = self.mSwitchLevelRequester, mLevel = parameter.mParameter.mLevel}
+            )
+            CommandQueueManager.singleton():post(
+                new(
+                    Command_Callback,
+                    {
+                        mDebug = "Host_Game:receive/SwitchLevelRequest",
+                        mExecutingCallback = function(command)
+                            command.mTimer = command.mTimer or new(Timer)
+                            if command.mTimer:total() > GameConfig.mSwitchLevelTime then
+                                if
+                                    self.mSwitchLevelAnswer and
+                                        self.mSwitchLevelAnswer >= math.floor(#self.mPlayerManager.mPlayers * 0.5)
+                                 then
+                                    self.mProperty:safeWrite("mSwitchLevel", parameter.mParameter.mLevel)
+                                end
+                                self.mSwitchLevelRequester = nil
+                                self.mSwitchLevelAnswer = nil
+                                command.mState = Command.EState.Finish
+                            end
+                        end
+                    }
+                )
+            )
+        end
+    elseif parameter.mMessage == "SwitchLevelAnswer" then
+        if parameter.mParameter.mResult and parameter.mParameter.mRequester == self.mSwitchLevelRequester then
+            self.mSwitchLevelAnswer = self.mSwitchLevelAnswer or 0
+            self.mSwitchLevelAnswer = self.mSwitchLevelAnswer + 1
+        end
+    end
+end
+
+function Host_Game:broadcast(message, parameter)
     Host.broadcast({mKey = "Game", mMessage = message, mParameter = parameter})
+end
+
+function Host_Game:sendToClient(playerID, message, parameter)
+    Host.sendTo(playerID, {mKey = "Game", mMessage = message, mParameter = parameter})
 end
 
 function Host_Game:getPlayerManager()
@@ -4341,8 +4481,8 @@ function Host_Game:setScene(scene, callback)
     end
     self.mScene = scene
     if self.mScene then
-        self.mProperty:safeWrite("mState","Fight")
-        self.mProperty:safeWrite("mFightLeftTime",GameConfig.mMatch.mTime)
+        self.mProperty:safeWrite("mState", "Fight")
+        self.mProperty:safeWrite("mFightLeftTime", GameConfig.mMatch.mTime)
         self.mProperty:safeWrite("mSafeHouseLeftTime")
         self.mScene.mTerrain:applyTemplate(
             function()
@@ -4359,9 +4499,10 @@ function Host_Game:setScene(scene, callback)
 end
 
 function Host_Game:start()
-    self.mProperty:safeWrite("mLevel", 1)
-    self.mProperty:safeWrite("mState","SafeHouse")
-    self.mProperty:safeWrite("mSafeHouseLeftTime",GameConfig.mPrepareTime)
+    self.mProperty:safeWrite("mLevel", self.mProperty:cache().mSwitchLevel or 1)
+    self.mProperty:safeWrite("mSwitchLevel")
+    self.mProperty:safeWrite("mState", "SafeHouse")
+    self.mProperty:safeWrite("mSafeHouseLeftTime", GameConfig.mPrepareTime)
     self.mPlayerManager:initializePlayerProperties()
     self:setScene(
         nil,
@@ -4377,7 +4518,7 @@ end
 
 function Host_Game:_nextMatch()
     self.mPlayerManager:initializePlayerProperties("mHP")
-    self.mProperty:safeWrite("mState","SafeHouse")
+    self.mProperty:safeWrite("mState", "SafeHouse")
     self.mCommandQueue:post(
         new(
             Command_Callback,
@@ -4385,7 +4526,7 @@ function Host_Game:_nextMatch()
                 mDebug = "Host_Game:_nextMatch/Prepare",
                 mExecutingCallback = function(command)
                     command.mTimer = command.mTimer or new(Timer)
-                    self.mProperty:safeWrite("mSafeHouseLeftTime",GameConfig.mPrepareTime - command.mTimer:total())
+                    self.mProperty:safeWrite("mSafeHouseLeftTime", GameConfig.mPrepareTime - command.mTimer:total())
                     if command.mTimer:total() >= GameConfig.mPrepareTime then
                         command.mState = Command.EState.Finish
                     end
@@ -4432,8 +4573,22 @@ function Host_Game:_nextMatch()
                                                 )
                                                 command.mState = Command.EState.Finish
                                             elseif self.mMonsterManager:isAllDead() then
-                                                self.mPlayerManager:eachPlayer("addMoney",GameCompute.computeMatchSuccessMoney(self.mProperty:cache().mLevel,#self.mPlayerManager.mPlayers))
-                                                self:broadcast("FightSuccess",{mAddMoney = GameCompute.computeMatchSuccessMoney(self.mProperty:cache().mLevel,#self.mPlayerManager.mPlayers)})
+                                                self.mPlayerManager:eachPlayer(
+                                                    "addMoney",
+                                                    GameCompute.computeMatchSuccessMoney(
+                                                        self.mProperty:cache().mLevel,
+                                                        #self.mPlayerManager.mPlayers
+                                                    )
+                                                )
+                                                self:broadcast(
+                                                    "FightSuccess",
+                                                    {
+                                                        mAddMoney = GameCompute.computeMatchSuccessMoney(
+                                                            self.mProperty:cache().mLevel,
+                                                            #self.mPlayerManager.mPlayers
+                                                        )
+                                                    }
+                                                )
                                                 self.mCommandQueue:post(
                                                     new(
                                                         Command_Callback,
@@ -4450,8 +4605,10 @@ function Host_Game:_nextMatch()
                                                                         function()
                                                                             self.mProperty:safeWrite(
                                                                                 "mLevel",
-                                                                                self.mProperty:cache().mLevel + 1
+                                                                                self.mProperty:cache().mSwitchLevel or
+                                                                                    (self.mProperty:cache().mLevel + 1)
                                                                             )
+                                                                            self.mProperty:safeWrite("mSwitchLevel")
                                                                             self:_nextMatch()
                                                                         end
                                                                     )
@@ -4462,7 +4619,10 @@ function Host_Game:_nextMatch()
                                                 )
                                                 command.mState = Command.EState.Finish
                                             else
-                                                self.mProperty:safeWrite("mFightLeftTime",GameConfig.mMatch.mTime - command.mTimer:total())
+                                                self.mProperty:safeWrite(
+                                                    "mFightLeftTime",
+                                                    GameConfig.mMatch.mTime - command.mTimer:total()
+                                                )
                                                 if command.mTimer:total() >= GameConfig.mMatch.mTime then
                                                     self:broadcast("FightFail")
                                                     self.mCommandQueue:post(
@@ -4666,7 +4826,8 @@ function Host_GameMonsterManager:setScene(scene)
             Host_GameMonsterGenerator,
             {
                 mPositions = scene.mTerrain:getMonsterPoints(),
-                mGenerateSpeed = GameConfig.mMatch.mMonsterGenerateSpeed * #Host_Game.singleton():getPlayerManager().mPlayers,
+                mGenerateSpeed = GameConfig.mMatch.mMonsterGenerateSpeed *
+                    #Host_Game.singleton():getPlayerManager().mPlayers,
                 mGenerateCount = GameCompute.computeMonsterGenerateCount(
                     Host_Game.singleton():getProperty():cache().mLevel
                 ) * GameCompute.computeMonsterGenerateCountScale(Host_Game.singleton():getPlayerManager().mPlayers)
@@ -4691,7 +4852,7 @@ function Host_GameMonsterManager:broadcast(message, parameter)
 end
 
 function Host_GameMonsterManager:sendToClient(playerID, message, parameter)
-    Host.sendTo(self.mPlayerID, {mKey = "GameMonsterManager", mMessage = message, mParameter = parameter})
+    Host.sendTo(playerID, {mKey = "GameMonsterManager", mMessage = message, mParameter = parameter})
 end
 
 function Host_GameMonsterManager:receive(parameter)
@@ -5243,7 +5404,10 @@ function Host_GameMonster:_updateMoveTarget()
             0,
             select.z,
             function(x, _, z)
-                if math.abs(x - my_x) < Host_Game.singleton().mScene.mTerrain.mTemplate.mAABBSize[1] and math.abs(z - my_z) < Host_Game.singleton().mScene.mTerrain.mTemplate.mAABBSize[3] then
+                if
+                    math.abs(x - my_x) < Host_Game.singleton().mScene.mTerrain.mTemplate.mAABBSize[1] and
+                        math.abs(z - my_z) < Host_Game.singleton().mScene.mTerrain.mTemplate.mAABBSize[3]
+                 then
                     return (not GetBlockId(x, my_y + 1, z)) or (GetBlockId(x, my_y + 1, z) == 0)
                 else
                     return false
@@ -5254,8 +5418,8 @@ function Host_GameMonster:_updateMoveTarget()
             self.mEntity:MoveTo(path[2][1], my_y + 1, path[2][3])
             self.mHasTarget = true
         else
-            local dir = (vector3d:new(select.x,0,select.z) - vector3d:new(my_x,0,my_z)):normalize()
-            local next_x,nexy_z = math.floor(my_x + dir[1] + 0.5),math.floor(my_z + dir[3] + 0.5)
+            local dir = (vector3d:new(select.x, 0, select.z) - vector3d:new(my_x, 0, my_z)):normalize()
+            local next_x, nexy_z = math.floor(my_x + dir[1] + 0.5), math.floor(my_z + dir[3] + 0.5)
             if not GetBlockId(next_x, my_y + 1, nexy_z) or GetBlockId(next_x, my_y + 1, nexy_z) == 0 then
                 self.mEntity:MoveTo(next_x, my_y + 1, nexy_z)
                 self.mHasTarget = true
@@ -5264,7 +5428,10 @@ function Host_GameMonster:_updateMoveTarget()
     else
         local offset_x = math.random(-1, 1)
         local offset_z = math.random(-1, 1)
-        if not GetBlockId(my_x + offset_x, my_y + 1, my_z + offset_z) or GetBlockId(my_x + offset_x, my_y + 1, my_z + offset_z) == 0 then
+        if
+            not GetBlockId(my_x + offset_x, my_y + 1, my_z + offset_z) or
+                GetBlockId(my_x + offset_x, my_y + 1, my_z + offset_z) == 0
+         then
             self.mEntity:MoveTo(my_x + offset_x, my_y + 1, my_z + offset_z)
             self.mHasTarget = true
         end
@@ -5309,7 +5476,21 @@ function Client_Game:construction()
         function(_, value)
         end
     )
-    Client.addListener("Game",self)
+    self.mProperty:addPropertyListener(
+        "mSwitchLevel",
+        self,
+        function(_, value)
+            if value then
+                Tip(
+                    "下一关将切换为关卡" .. tostring(value),
+                    5000,
+                    "255 255 0",
+                    "SwitchLevel"
+                )
+            end
+        end
+    )
+    Client.addListener("Game", self)
 end
 
 function Client_Game:destruction()
@@ -5323,8 +5504,9 @@ function Client_Game:destruction()
     self.mProperty:removePropertyListener("mState")
     self.mProperty:removePropertyListener("mSafeHouseLeftTime")
     self.mProperty:removePropertyListener("mFightLeftTime")
+    self.mProperty:removePropertyListener("mSwitchLevel")
     delete(self.mProperty)
-    Client.removeListener("Game",self)
+    Client.removeListener("Game", self)
     Client_Game.msInstance = nil
 end
 
@@ -5341,57 +5523,104 @@ function Client_Game:update(deltaTime)
 end
 
 function Client_Game:receive(parameter)
-    if parameter.mMessage == "FightSuccess" then
-        CommandQueueManager.singleton():post(
-            new(
-                Command_Callback,
-                {
-                    mDebug = "Client_Game:receive/FightSuccess",
-                    mTimeOutProcess = function()
-                    end,
-                    mExecutingCallback = function(command)
-                        command.mTimer = command.mTimer or new(Timer)
-                        Tip(
-                                                                    "战斗胜利，通关奖励：￥" .. tostring(math.floor(parameter.mParameter.mAddMoney)) .."，" ..
-                                                                        tostring(math.floor(5 - command.mTimer:total())) ..
-                                                                            "秒后返回安全屋",
-                                                                    1400,
-                                                                    "255 255 0",
-                                                                    "notice"
-                                                                )
-                        if command.mTimer:total() >= 5 then
-                            command.mState = Command.EState.Finish
+    local is_responese, _ = string.find(parameter.mMessage, "_Response")
+    if is_responese then
+        local message = string.sub(parameter.mMessage, 1, is_responese - 1)
+        if self.mResponseCallback[message] then
+            self.mResponseCallback[message](parameter.mParameter)
+            self.mResponseCallback[message] = nil
+        end
+    else
+        if parameter.mMessage == "FightSuccess" then
+            CommandQueueManager.singleton():post(
+                new(
+                    Command_Callback,
+                    {
+                        mDebug = "Client_Game:receive/FightSuccess",
+                        mTimeOutProcess = function()
+                        end,
+                        mExecutingCallback = function(command)
+                            command.mTimer = command.mTimer or new(Timer)
+                            Tip(
+                                "战斗胜利，通关奖励：￥" ..
+                                    tostring(math.floor(parameter.mParameter.mAddMoney)) ..
+                                        "，" .. tostring(math.floor(5 - command.mTimer:total())) .. "秒后返回安全屋",
+                                1400,
+                                "255 255 0",
+                                "notice"
+                            )
+                            if command.mTimer:total() >= 5 then
+                                command.mState = Command.EState.Finish
+                            end
                         end
-                    end
-                }
+                    }
+                )
             )
-        )    
-    elseif parameter.mMessage == "FightFail" then
-        CommandQueueManager.singleton():post(
-            new(
-                Command_Callback,
-                {
-                    mDebug = "Client_Game:receive/FightFail",
-                    mTimeOutProcess = function()
-                    end,
-                    mExecutingCallback = function(command)
-                        command.mTimer = command.mTimer or new(Timer)
-                        Tip(
-                            "全体阵亡，" ..
-                                tostring(math.floor(5 - command.mTimer:total())) ..
-                                    "秒后返回安全屋重新开始",
-                            1400,
-                            "255 255 0",
-                            "notice"
+        elseif parameter.mMessage == "FightFail" then
+            CommandQueueManager.singleton():post(
+                new(
+                    Command_Callback,
+                    {
+                        mDebug = "Client_Game:receive/FightFail",
+                        mTimeOutProcess = function()
+                        end,
+                        mExecutingCallback = function(command)
+                            command.mTimer = command.mTimer or new(Timer)
+                            Tip(
+                                "全体阵亡，" .. tostring(math.floor(5 - command.mTimer:total())) .. "秒后返回安全屋重新开始",
+                                1400,
+                                "255 255 0",
+                                "notice"
+                            )
+                            if command.mTimer:total() >= 5 then
+                                command.mState = Command.EState.Finish
+                            end
+                        end
+                    }
+                )
+            )
+        elseif parameter.mMessage == "SwitchLevel" then
+            if parameter.mParameter.mRequester == GetPlayerId() then
+                self:sendToHost("SwitchLevelAnswer", {mResult = true, mRequester = parameter.mParameter.mRequester})
+            else
+                local nickname = tostring(parameter.mParameter.mRequester)
+                if GetEntityById(parameter.mParameter.mRequester) then
+                    nickname = GetEntityById(parameter.mParameter.mRequester).nickname
+                end
+                UI.yesOrNo(
+                    nickname .. "希望切换关卡为：" .. tostring(parameter.mParameter.mLevel) .. "，你同意吗？",
+                    function()
+                        command.mState = Command.EState.Finish
+                        self:sendToHost(
+                            "SwitchLevelAnswer",
+                            {mResult = true, mRequester = parameter.mParameter.mRequester}
                         )
-                        if command.mTimer:total() >= 5 then
-                            command.mState = Command.EState.Finish
-                        end
+                    end,
+                    function()
+                        command.mState = Command.EState.Finish
+                        self:sendToHost(
+                            "SwitchLevelAnswer",
+                            {mResult = false, mRequester = parameter.mParameter.mRequester}
+                        )
                     end
-                }
-            )
-        )    
+                )
+            end
+        end
     end
+end
+
+function Client_Game:broadcast(message, parameter)
+    Client.broadcast("Game", {mMessage = message, mParameter = parameter})
+end
+
+function Client_Game:sendToHost(message, parameter)
+    Client.sendToHost("Game", {mMessage = message, mParameter = parameter})
+end
+
+function Client_Game:requestToHost(message, parameter, callback)
+    self.mResponseCallback = self.mResponseCallback or {}
+    self.mResponseCallback[message] = callback
+    self:sendToHost(message, parameter)
 end
 
 function Client_Game:onHit(weapon, result)
@@ -5400,6 +5629,21 @@ function Client_Game:onHit(weapon, result)
 end
 
 function Client_Game:switchLevel(level)
+    if self.mSwitchLeveling then
+        UI.messageBox("请等待上次请求结束...")
+        return
+    end
+    self.mSwitchLeveling = true
+    self:requestToHost(
+        "SwitchLevelRequest",
+        {mLevel = level},
+        function(parameter)
+            self.mSwitchLeveling = nil
+            if not parameter.mResult then
+                UI.messageBox("请求被拒绝")
+            end
+        end
+    )
 end
 
 function Client_Game:getPlayerManager()
@@ -5692,35 +5936,37 @@ function Client_GamePlayer:construction(parameter)
                         setUiValue("upgrade_background", "visible", not getUiValue("upgrade_background", "visible"))
                     elseif event.keyname == "DIK_TAB" then
                         setUiValue("ranking_background", "visible", not getUiValue("ranking_background", "visible"))
+                    elseif event.keyname == "DIK_L" then
+                        setUiValue("chooseLevel_background", "visible", not getUiValue("chooseLevel_background", "visible"))
                     end
                 end
             end
         )
-        Client_Game.singleton():getProperty():addPropertyListener("mState",self,function(_,value)
-            if value == "Fight" then
-                SetCameraMode(3)
-                setUiValue("upgrade_background", "visible", false)
-                --setUiValue("chooseLevel_background", "visible", false)
-                setUiValue("levelInfo_background", "visible", true)
-                self:_updateGun()
-            elseif value == "SafeHouse" then
-                SetCameraMode(2)
-                setUiValue("upgrade_background", "visible", true)
-                --setUiValue("chooseLevel_background", "visible", true)
-                setUiValue("levelInfo_background", "visible", false)
+        Client_Game.singleton():getProperty():addPropertyListener(
+            "mState",
+            self,
+            function(_, value)
+                if value == "Fight" then
+                    SetCameraMode(3)
+                    setUiValue("upgrade_background", "visible", false)
+                    setUiValue("levelInfo_background", "visible", true)
+                    self:_updateGun()
+                elseif value == "SafeHouse" then
+                    SetCameraMode(2)
+                    setUiValue("upgrade_background", "visible", true)
+                    setUiValue("levelInfo_background", "visible", false)
+                end
             end
-        end)
-        Client_Game.singleton():getProperty():addPropertyListener("mSafeHouseLeftTime",self,function(_,value)
-            if value then
-                Tip(
-                    "请抓紧时间升级您的战斗力，离开始下一关卡还有" ..
-                        tostring(math.floor(value)) .. "秒",
-                    1400,
-                    "255 255 0",
-                    "notice"
-                )            
+        )
+        Client_Game.singleton():getProperty():addPropertyListener(
+            "mSafeHouseLeftTime",
+            self,
+            function(_, value)
+                if value then
+                    Tip("请抓紧时间升级您的战斗力，离开始下一关卡还有" .. tostring(math.floor(value)) .. "秒", 1400, "255 255 0", "notice")
+                end
             end
-        end)
+        )
     end
     self.mProperty:addPropertyListener(
         "mHPLevel",
@@ -5815,7 +6061,7 @@ function Client_GamePlayer:update()
         if WeaponSystem.get(1) and WeaponSystem.get(1):getAmmoCount() == 0 then
             Tip("按R键重装子弹", 3000, "255 255 0", "reload")
         end
-        if self.mProperty:cache().mHP and self.mProperty:cache().mHP <=0 then
+        if self.mProperty:cache().mHP and self.mProperty:cache().mHP <= 0 then
             Tip("你已经死亡，需要等待关卡结束后复活......", 3000, "255 255 0", "die")
         end
     end
@@ -5849,7 +6095,7 @@ function Client_GamePlayer:receive(parameter)
                         height = 50,
                         width = 200,
                         visible = true,
-                        text = "+￥" .. tostring(processFloat(parameter.mParameter.mMoney,2))
+                        text = "+￥" .. tostring(processFloat(parameter.mParameter.mMoney, 2))
                     }
                 )
                 CommandQueueManager.singleton():post(
