@@ -3961,8 +3961,7 @@ local gameUi = {
         shadow = true,
         font_color = "255 255 255",
         visible = function()
-            return false
-            -- return getUiValue("voteLevel_background", "visible")
+            return getUiValue("voteLevel_background", "visible")
         end
     },
     {
@@ -4390,6 +4389,8 @@ function Host_Game:destruction()
     self.mProperty:safeWrite("mSafeHouseLeftTime")
     self.mProperty:safeWrite("mFightLeftTime")
     self.mProperty:safeWrite("mSwitchLevel")
+    self.mProperty:safeWrite("mSwitchLevelAgree")
+    self.mProperty:safeWrite("mSwitchLevelDisagree")
     delete(self.mProperty)
     Host.removeListener("Game", self)
     Host_Game.msInstance = nil
@@ -4433,13 +4434,15 @@ function Host_Game:receive(parameter)
                             command.mTimer = command.mTimer or new(Timer)
                             if command.mTimer:total() > GameConfig.mSwitchLevelTime then
                                 if
-                                    self.mSwitchLevelAnswer and
-                                        self.mSwitchLevelAnswer >= math.floor(#self.mPlayerManager.mPlayers * 0.5)
+                                    self.mProperty:cache().mSwitchLevelAgree and
+                                        self.mProperty:cache().mSwitchLevelAgree >=
+                                            math.floor(#self.mPlayerManager.mPlayers * 0.5)
                                  then
                                     self.mProperty:safeWrite("mSwitchLevel", parameter.mParameter.mLevel)
                                 end
                                 self.mSwitchLevelRequester = nil
-                                self.mSwitchLevelAnswer = nil
+                                self.mProperty:safeWrite("mSwitchLevelAgree")
+                                self.mProperty:safeWrite("mSwitchLevelDisagree")
                                 command.mState = Command.EState.Finish
                             end
                         end
@@ -4449,8 +4452,9 @@ function Host_Game:receive(parameter)
         end
     elseif parameter.mMessage == "SwitchLevelAnswer" then
         if parameter.mParameter.mResult and parameter.mParameter.mRequester == self.mSwitchLevelRequester then
-            self.mSwitchLevelAnswer = self.mSwitchLevelAnswer or 0
-            self.mSwitchLevelAnswer = self.mSwitchLevelAnswer + 1
+            self.mProperty:safeWrite("mSwitchLevelAgree", (self.mProperty:cache().mSwitchLevelAgree or 0) + 1)
+        elseif not parameter.mParameter.mResult and parameter.mParameter.mRequester == self.mSwitchLevelRequester then
+            self.mProperty:safeWrite("mSwitchLevelDisagree", (self.mProperty:cache().mSwitchLevelDisagree or 0) + 1)
         end
     end
 end
@@ -4658,6 +4662,8 @@ function Host_Game:_nextMatch()
 end
 
 function Host_Game:_startMatch(callback)
+    self.mProperty:safeWrite("mLevel", self.mProperty:cache().mSwitchLevel or (self.mProperty:cache().mLevel + 1))
+    self.mProperty:safeWrite("mSwitchLevel")
     local scene = {mLevel = self.mProperty:cache().mLevel}
     local terrains = {}
     for _, terrain in pairs(GameConfig.mTerrainLibrary) do
@@ -5481,13 +5487,20 @@ function Client_Game:construction()
         self,
         function(_, value)
             if value then
-                Tip(
-                    "下一关将切换为关卡" .. tostring(value),
-                    5000,
-                    "255 255 0",
-                    "SwitchLevel"
-                )
+                Tip("下一关将切换为关卡" .. tostring(value), 5000, "255 255 0", "SwitchLevel")
             end
+        end
+    )
+    self.mProperty:addPropertyListener(
+        "mSwitchLevelAgree",
+        self,
+        function(_, value)
+        end
+    )
+    self.mProperty:addPropertyListener(
+        "mSwitchLevelDisagree",
+        self,
+        function(_, value)
         end
     )
     Client.addListener("Game", self)
@@ -5505,6 +5518,8 @@ function Client_Game:destruction()
     self.mProperty:removePropertyListener("mSafeHouseLeftTime")
     self.mProperty:removePropertyListener("mFightLeftTime")
     self.mProperty:removePropertyListener("mSwitchLevel")
+    self.mProperty:removePropertyListener("mSwitchLevelAgree")
+    self.mProperty:removePropertyListener("mSwitchLevelDisagree")
     delete(self.mProperty)
     Client.removeListener("Game", self)
     Client_Game.msInstance = nil
@@ -5580,30 +5595,69 @@ function Client_Game:receive(parameter)
                 )
             )
         elseif parameter.mMessage == "SwitchLevel" then
-            if parameter.mParameter.mRequester == GetPlayerId() then
-                self:sendToHost("SwitchLevelAnswer", {mResult = true, mRequester = parameter.mParameter.mRequester})
-            else
-                local nickname = tostring(parameter.mParameter.mRequester)
-                if GetEntityById(parameter.mParameter.mRequester) then
-                    nickname = GetEntityById(parameter.mParameter.mRequester).nickname
-                end
-                UI.yesOrNo(
-                    nickname .. "希望切换关卡为：" .. tostring(parameter.mParameter.mLevel) .. "，你同意吗？",
+            local nickname = tostring(parameter.mParameter.mRequester)
+            if GetEntityById(parameter.mParameter.mRequester) then
+                nickname = GetEntityById(parameter.mParameter.mRequester).nickname
+            end
+            setUiValue("voteLevel_background", "visible", true)
+            CommandQueueManager.singleton():post(
+                new(
+                    Command_Callback,
+                    {
+                        mDebug = "SwitchLevelTimer",
+                        mExecutingCallback = function(command)
+                            command.mTimer = command.mTimer or new(Timer)
+                            setUiValue(
+                                "voteTimeLeft",
+                                "text",
+                                "剩余时间：" .. tostring(math.floor(GameConfig.mSwitchLevelTime - command.mTimer:total())) .. "秒"
+                            )
+                            setUiValue(
+                                "agree_text",
+                                "text",
+                                "(" .. tostring(self.mProperty:cache().mSwitchLevelAgree or 0) .. "票)"
+                            )
+                            setUiValue(
+                                "disagree_text",
+                                "text",
+                                "(" .. tostring(self.mProperty:cache().mSwitchLevelDisagree or 0) .. "票)"
+                            )
+                            if command.mTimer:total() > GameConfig.mSwitchLevelTime then
+                                setUiValue("voteLevel_background", "visible", false)
+                                command.mState = Command.EState.Finish
+                            end
+                        end
+                    }
+                )
+            )
+            setUiValue(
+                "voteLevel_text",
+                "text",
+                nickname .. " 想切换到关卡等级" .. tostring(parameter.mParameter.mLevel) .. "，是否同意？"
+            )
+            if parameter.mParameter.mRequester ~= GetPlayerId() then
+                setUiValue(
+                    "agree_button",
+                    "onclick",
                     function()
-                        command.mState = Command.EState.Finish
                         self:sendToHost(
                             "SwitchLevelAnswer",
                             {mResult = true, mRequester = parameter.mParameter.mRequester}
                         )
-                    end,
+                    end
+                )
+                setUiValue(
+                    "disagree_button",
+                    "onclick",
                     function()
-                        command.mState = Command.EState.Finish
                         self:sendToHost(
                             "SwitchLevelAnswer",
                             {mResult = false, mRequester = parameter.mParameter.mRequester}
                         )
                     end
                 )
+            else
+                self:sendToHost("SwitchLevelAnswer", {mResult = true, mRequester = parameter.mParameter.mRequester})
             end
         end
     end
@@ -5937,7 +5991,11 @@ function Client_GamePlayer:construction(parameter)
                     elseif event.keyname == "DIK_TAB" then
                         setUiValue("ranking_background", "visible", not getUiValue("ranking_background", "visible"))
                     elseif event.keyname == "DIK_L" then
-                        setUiValue("chooseLevel_background", "visible", not getUiValue("chooseLevel_background", "visible"))
+                        setUiValue(
+                            "chooseLevel_background",
+                            "visible",
+                            not getUiValue("chooseLevel_background", "visible")
+                        )
                     end
                 end
             end
