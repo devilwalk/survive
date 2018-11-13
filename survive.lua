@@ -2279,7 +2279,7 @@ GameConfig.mMonsterLibrary = {
     }
 }
 GameConfig.mTerrainLibrary = {
-    {mTemplateResource = {hash="Fj52YxvPbfkoGqqnyZ3uO9Y1bL3n",pid="18318",ext="bmax",}},
+    {mTemplateResource = {hash="FjSzbfpww1S3GAl4lPEniRIsL7nI",pid="18337",ext="bmax",}},
     {mTemplateResource = {hash="FmUBdvkP3gLjaCFqxXPV-NnjKMNl",pid="18246",ext="bmax",}},
     {mTemplateResource = {hash="FrjOcjFP-C4TyfVtl49khSMvtU8a",pid="18319",ext="bmax",}}
 }
@@ -5238,7 +5238,7 @@ function Host_GameMonster:_updateMoveTarget()
             select.z,
             function(x, _, z)
                 if math.abs(x - my_x) < Host_Game.singleton().mScene.mTerrain.mTemplate.mAABBSize[1] and math.abs(z - my_z) < Host_Game.singleton().mScene.mTerrain.mTemplate.mAABBSize[3] then
-                    return not GetBlockId(x, my_y + 1, z) or GetBlockId(x, my_y + 1, z) == 0
+                    return (not GetBlockId(x, my_y + 1, z)) or (GetBlockId(x, my_y + 1, z) == 0)
                 else
                     return false
                 end
@@ -5925,6 +5925,8 @@ function Client_GamePlayer:onHit(weapon, result)
             target_position = {}
             target_position[1], target_position[2], target_position[3] =
                 ConvertToRealPosition(result.blockX, result.blockY, result.blockZ)
+        else
+            target_position = src_position + vector3d:new(GetEntityDirection(self.mPlayerID)) * 100
         end
         local dir = target_position - src_position
         local length = dir:length()
