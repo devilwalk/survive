@@ -3240,7 +3240,7 @@ local gameUi = {
         shadow = true,
         font_color = "255 255 255",
         visible = function()
-            return getUiValue("levelInfo_background", "visible")
+            return true
         end
     },
     -- 排行榜
@@ -4012,6 +4012,9 @@ local gameUi = {
         end,
         onclick = function()
             -- closeSafeHouseUI()
+            if getUiValue("agree_button","onclickCallback") then
+                getUiValue("agree_button","onclickCallback")()
+            end
         end,
         font_bold = true,
         height = 50,
@@ -4044,6 +4047,9 @@ local gameUi = {
         end,
         onclick = function()
             -- closeSafeHouseUI()
+            if getUiValue("disagree_button","onclickCallback") then
+                getUiValue("disagree_button","onclickCallback")()
+            end
         end,
         font_bold = true,
         height = 50,
@@ -5638,7 +5644,7 @@ function Client_Game:receive(parameter)
             if parameter.mParameter.mRequester ~= GetPlayerId() then
                 setUiValue(
                     "agree_button",
-                    "onclick",
+                    "onclickCallback",
                     function()
                         self:sendToHost(
                             "SwitchLevelAnswer",
@@ -5648,7 +5654,7 @@ function Client_Game:receive(parameter)
                 )
                 setUiValue(
                     "disagree_button",
-                    "onclick",
+                    "onclickCallback",
                     function()
                         self:sendToHost(
                             "SwitchLevelAnswer",
@@ -5996,6 +6002,13 @@ function Client_GamePlayer:construction(parameter)
                             "visible",
                             not getUiValue("chooseLevel_background", "visible")
                         )
+                    elseif event.keyname == "DIK_O" then
+                        self.mCameraMode = self.mCameraMode or 3
+                        if self.mCameraMode == 3 then
+                            self.mCameraMode = 1
+                        else
+                            self.mCameraMode = 3
+                        end
                     end
                 end
             end
@@ -6122,6 +6135,7 @@ function Client_GamePlayer:update()
         if self.mProperty:cache().mHP and self.mProperty:cache().mHP <= 0 then
             Tip("你已经死亡，需要等待关卡结束后复活......", 3000, "255 255 0", "die")
         end
+        self:_updateCameraMode()
     end
 end
 
@@ -6321,6 +6335,23 @@ function Client_GamePlayer:_updateGun()
     for i = 2, 9 do
         local bullets = CreateItemStack(50101, 999)
         SetItemStackToInventory(i, bullets)
+    end
+end
+
+function Client_GamePlayer:_updateCameraMode()
+    if getUiValue("upgrade_background","visible")
+    or getUiValue("chooseLevel_background","visible")
+    or getUiValue("voteLevel_background","visible")
+    then
+        SetCameraMode(2)
+    else
+        SetCameraMode(self.mCameraMode or 3)
+        self.mCameraModeTimer = self.mCameraModeTimer or new(Timer)
+        if self.mCameraModeTimer:total() > 60 then
+            Tip("O键切换视角", 5000, "255 255 0", "SwitchCamera")
+            delete(self.mCameraModeTimer)
+            self.mCameraModeTimer = nil
+        end
     end
 end
 -----------------------------------------------------------------------------------------Client_GameMonster-----------------------------------------------------------------------------------
