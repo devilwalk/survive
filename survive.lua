@@ -1692,11 +1692,15 @@ end
 -----------------------------------------------------------------------------------------PlayerManager-----------------------------------------------------------------------------------------
 function PlayerManager.initialize()
     PlayerManager.onPlayerIn(EntityWatcher.get(GetPlayerId()))
+    PlayerManager.onPlayerEntityCreate(EntityWatcher.get(GetPlayerId()))
     EntityWatcher.on(
         "create",
         function(inst)
             echo("devilwalk","PlayerManager.initialize:EntityWatcher.on:inst:"..tostring(inst.id))
             PlayerManager.onPlayerIn(inst)
+            if GetEntityById(inst.id) then
+                PlayerManager.onPlayerEntityCreate(inst)
+            end
             if PlayerManager.mHideAll then
                 PlayerManager.hideAll()
             end
@@ -1710,6 +1714,12 @@ function PlayerManager.onPlayerIn(entityWatcher)
     PlayerManager.notify("PlayerIn", {mPlayerID = entityWatcher.id})
 end
 
+function PlayerManager.onPlayerEntityCreate(entityWatcher)
+    PlayerManager.mPlayerEntitices = PlayerManager.mPlayerEntitices or {}
+    PlayerManager.mPlayerEntitices[entityWatcher.id] = entityWatcher
+    PlayerManager.notify("PlayerEntityCreate", {mPlayerID = entityWatcher.id})
+end
+
 function PlayerManager.getPlayerByID(id)
     id = id or GetPlayerId()
     return PlayerManager.mPlayers[id]
@@ -1717,9 +1727,12 @@ end
 
 function PlayerManager.update()
     for id, player in pairs(PlayerManager.mPlayers) do
-        if not GetEntityById(id) then
+        if not GetEntityById(id) and PlayerManager.mPlayerEntitices and PlayerManager.mPlayerEntitices[id] then
             PlayerManager.notify("PlayerRemoved", {mPlayerID = id})
             PlayerManager.mPlayers[id] = nil
+            PlayerManager.mPlayerEntitices[id] = nil
+        elseif GetEntityById(id) and (not PlayerManager.mPlayerEntitices or not PlayerManager.mPlayerEntitices[id]) then
+            PlayerManager.onPlayerEntityCreate(player)
         end
     end
 end
@@ -4873,10 +4886,10 @@ function Host_GamePlayerManager:construction()
         self:_createPlayer(EntityWatcher.get(id))
     end
     PlayerManager.addEventListener(
-        "PlayerIn",
+        "PlayerEntityCreate",
         "Host_GamePlayerManager",
         function(inst, parameter)
-            echo("devilwalk","Host_GamePlayerManager:construction:PlayerIn:"..tostring(parameter.mPlayerID))
+            echo("devilwalk","Host_GamePlayerManager:construction:PlayerEntityCreate:"..tostring(parameter.mPlayerID))
             self:_createPlayer(EntityWatcher.get(parameter.mPlayerID))
         end,
         self
@@ -4895,7 +4908,7 @@ end
 
 function Host_GamePlayerManager:destruction()
     self:reset()
-    PlayerManager.removeEventListener("PlayerIn", "Host_GamePlayerManager")
+    PlayerManager.removeEventListener("PlayerEntityCreate", "Host_GamePlayerManager")
     PlayerManager.removeEventListener("PlayerRemoved", "Host_GamePlayerManager")
     Host.removeListener("GamePlayerManager", self)
 end
@@ -4981,7 +4994,7 @@ function Host_GameMonsterManager:construction()
     self.mProperty = new(GameMonsterManagerProperty)
 
     PlayerManager.addEventListener(
-        "PlayerIn",
+        "PlayerEntityCreate",
         "Host_GameMonsterManager",
         function(inst, parameter)
             for _, monster in pairs(self.mMonsters) do
@@ -5949,10 +5962,10 @@ function Client_GamePlayerManager:construction()
     self.mPlayers = {}
 
     PlayerManager.addEventListener(
-        "PlayerIn",
+        "PlayerEntityCreate",
         "Client_GamePlayerManager",
         function(inst, parameter)
-            echo("devilwalk","Client_GamePlayerManager:construction:PlayerIn:"..tostring(parameter.mPlayerID))
+            echo("devilwalk","Client_GamePlayerManager:construction:PlayerEntityCreate:"..tostring(parameter.mPlayerID))
             self:_createPlayer(parameter.mPlayerID)
         end,
         self
@@ -5971,7 +5984,7 @@ end
 
 function Client_GamePlayerManager:destruction()
     self:reset()
-    PlayerManager.removeEventListener("PlayerIn","Client_GamePlayerManager")
+    PlayerManager.removeEventListener("PlayerEntityCreate","Client_GamePlayerManager")
     PlayerManager.removeEventListener("PlayerRemoved","Client_GamePlayerManager")
     Client.removeListener("GamePlayerManager", self)
 end
