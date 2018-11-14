@@ -5932,6 +5932,9 @@ end
 function Client_GamePlayerManager:construction()
     self.mPlayers = {}
 
+    for id, player in pairs(PlayerManager.mPlayers) do
+        self:_createPlayer(EntityWatcher.get(id))
+    end
     PlayerManager.addEventListener(
         "PlayerIn",
         "Client_GamePlayerManager",
