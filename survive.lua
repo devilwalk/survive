@@ -2472,7 +2472,8 @@ end
 
 function GameCompute.computeMatchSuccessMoney(matchLevel, playerCount)
     playerCount = math.max(playerCount, 2)
-    return GameCompute.computeMonsterGenerateCount(matchLevel) *
+    local averageMonsterCount = 45
+    return averageMonsterCount*
         monLootGold(GameCompute.computeMonsterLevel(matchLevel)) *
         (playerCount - 1) /
         playerCount
