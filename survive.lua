@@ -2472,7 +2472,8 @@ end
 
 function GameCompute.computeMatchSuccessMoney(matchLevel, playerCount)
     playerCount = math.max(playerCount, 2)
-    return GameCompute.computeMonsterGenerateCount(matchLevel) *
+    local averageMonsterCount = 45
+    return averageMonsterCount*
         monLootGold(GameCompute.computeMonsterLevel(matchLevel)) *
         (playerCount - 1) /
         playerCount
@@ -6220,7 +6221,12 @@ function Client_GamePlayer:construction(parameter)
                             self.mCameraMode = 3
                         end
                     elseif event.keyname == "DIK_ESCAPE" then
-                        self.mCameraMode = 2
+                        self.mCameraMode = self.mCameraMode or 3
+                        if self.mCameraMode == 3 then
+                            self.mCameraMode = 2
+                        else
+                            self.mCameraMode = 3
+                        end
                     end
                 end
             end
@@ -6377,7 +6383,7 @@ function Client_GamePlayer:receive(parameter)
                         y = -80,
                         x = -80,
                         height = 50,
-                        width = 200,
+                        width = 300,
                         visible = true,
                         text = "+￥" .. tostring(processFloat(parameter.mParameter.mMoney, 2))
                     }
