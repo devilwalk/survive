@@ -6374,7 +6374,7 @@ function Client_GamePlayer:receive(parameter)
                         y = -80,
                         x = -80,
                         height = 50,
-                        width = 200,
+                        width = 300,
                         visible = true,
                         text = "+￥" .. tostring(processFloat(parameter.mParameter.mMoney, 2))
                     }
