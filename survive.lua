@@ -142,8 +142,8 @@ local InputManager = {}
 local PlayerManager = {}
 local UI = {}
 -----------------------------------------------------------------------------------------Framework-----------------------------------------------------------------------------------
-function Framework.singleton()
-    if not Framework.msInstance then
+function Framework.singleton(construct)
+    if not Framework.msInstance and construct then
         Framework.msInstance = new(Framework)
     end
     return Framework.msInstance
@@ -160,6 +160,7 @@ function Framework:destruction()
     delete(CommandQueueManager.singleton())
     delete(EntityCustomManager.singleton())
     MiniGameUISystem.shutdown()
+    Framework.msInstance = nil
 end
 
 function Framework:update()
@@ -5949,6 +5950,7 @@ function Client_GamePlayerManager:construction()
         "PlayerIn",
         "Client_GamePlayerManager",
         function(inst, parameter)
+            echo("devilwalk","Client_GamePlayerManager:construction:PlayerIn:"..tostring(inst.id))
             self:_createPlayer(parameter.mPlayerID)
         end,
         self
@@ -5957,6 +5959,7 @@ function Client_GamePlayerManager:construction()
         "PlayerRemoved",
         "Client_GamePlayerManager",
         function(inst, parameter)
+            echo("devilwalk","Client_GamePlayerManager:construction:PlayerRemoved:"..tostring(inst.id))
             self:_destroyPlayer(parameter.mPlayerID)
         end,
         self
@@ -5966,6 +5969,8 @@ end
 
 function Client_GamePlayerManager:destruction()
     self:reset()
+    PlayerManager.removeEventListener("PlayerIn","Client_GamePlayerManager")
+    PlayerManager.removeEventListener("PlayerRemoved","Client_GamePlayerManager")
     Client.removeListener("GamePlayerManager", self)
 end
 
@@ -6809,7 +6814,7 @@ end
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- 入口
 function main()
-    Framework.singleton()
+    Framework.singleton(true)
     Client_Game.singleton(true)
     Revive()
     SendTo("host", {mMessage = "CheckHost"})
@@ -6860,10 +6865,14 @@ function receiveMsg(parameter)
 end
 
 function update()
-    Framework.singleton():update()
+    if Framework.singleton() then
+        Framework.singleton():update()
+    end
     local delta_time = Timer.global():delta()
     if Host_Game.singleton() then
         Host_Game.singleton():update(delta_time)
     end
-    Client_Game.singleton():update(delta_time)
+    if Client_Game.singleton() then
+        Client_Game.singleton():update(delta_time)
+    end
 end
