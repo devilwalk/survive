@@ -4876,6 +4876,7 @@ function Host_GamePlayerManager:construction()
         "PlayerIn",
         "Host_GamePlayerManager",
         function(inst, parameter)
+            echo("devilwalk","Host_GamePlayerManager:construction:PlayerIn:"..tostring(parameter.mPlayerID))
             self:_createPlayer(EntityWatcher.get(parameter.mPlayerID))
         end,
         self
@@ -4884,6 +4885,7 @@ function Host_GamePlayerManager:construction()
         "PlayerRemoved",
         "Host_GamePlayerManager",
         function(inst, parameter)
+            echo("devilwalk","Host_GamePlayerManager:construction:PlayerRemoved:"..tostring(parameter.mPlayerID))
             self:_destroyPlayer(parameter.mPlayerID)
         end,
         self
@@ -6837,7 +6839,9 @@ end
 
 -- 获取输入
 function handleInput(event)
-    Framework.singleton():handleInput(event)
+    if Framework.singleton() then
+        Framework.singleton():handleInput(event)
+    end
     return WeaponSystem.input(event)
 end
 
@@ -6861,7 +6865,9 @@ function receiveMsg(parameter)
     elseif parameter.mMessage == "Clear" then
         clear()
     end
-    Framework.singleton():receiveMsg(parameter)
+    if Framework.singleton() then
+        Framework.singleton():receiveMsg(parameter)
+    end
 end
 
 function update()
