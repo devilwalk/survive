@@ -4135,6 +4135,8 @@ local gameUi = {
             if getUiValue("agree_button","onclickCallback") then
                 getUiValue("agree_button","onclickCallback")()
             end
+            setUiValue("agree_text","font_color","255 255 0")
+            setUiValue("disagree_text","font_color","255 255 255")
         end,
         font_bold = true,
         height = 50,
@@ -4145,7 +4147,8 @@ local gameUi = {
         font_color = "220 20 60",
         visible = function()
             return getUiValue("voteLevel_background", "visible")
-        end
+        end,
+        enabled = true
     },
     {
         ui_name = "disagree_button",
@@ -4170,6 +4173,8 @@ local gameUi = {
             if getUiValue("disagree_button","onclickCallback") then
                 getUiValue("disagree_button","onclickCallback")()
             end
+            setUiValue("agree_text","font_color","255 255 255")
+            setUiValue("disagree_text","font_color","255 255 0")
         end,
         font_bold = true,
         height = 50,
@@ -4180,7 +4185,8 @@ local gameUi = {
         font_color = "220 20 60",
         visible = function()
             return getUiValue("voteLevel_background", "visible")
-        end
+        end,
+        enabled = true
     },
     {
         ui_name = "agree_text",
@@ -5764,11 +5770,31 @@ function Client_Game:receive(parameter)
             if parameter.mParameter.mRequester ~= GetPlayerId() then
                 setUiValue(
                     "agree_button",
+                    "enabled",
+                    true
+                )
+                setUiValue(
+                    "disagree_button",
+                    "enabled",
+                    true
+                )
+                setUiValue(
+                    "agree_button",
                     "onclickCallback",
                     function()
                         self:sendToHost(
                             "SwitchLevelAnswer",
                             {mResult = true, mRequester = parameter.mParameter.mRequester}
+                        )
+                        setUiValue(
+                            "agree_button",
+                            "enabled",
+                            false
+                        )
+                        setUiValue(
+                            "disagree_button",
+                            "enabled",
+                            false
                         )
                     end
                 )
@@ -5780,10 +5806,31 @@ function Client_Game:receive(parameter)
                             "SwitchLevelAnswer",
                             {mResult = false, mRequester = parameter.mParameter.mRequester}
                         )
+                        setUiValue(
+                            "agree_button",
+                            "enabled",
+                            false
+                        )
+                        setUiValue(
+                            "disagree_button",
+                            "enabled",
+                            false
+                        )
                     end
                 )
             else
                 self:sendToHost("SwitchLevelAnswer", {mResult = true, mRequester = parameter.mParameter.mRequester})
+                setUiValue("agree_text","font_color","255 255 0")
+                setUiValue(
+                    "agree_button",
+                    "enabled",
+                    false
+                )
+                setUiValue(
+                    "disagree_button",
+                    "enabled",
+                    false
+                )
             end
         end
     end
