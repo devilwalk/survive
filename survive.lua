@@ -2479,6 +2479,17 @@ function GameCompute.computeMatchSuccessMoney(matchLevel, playerCount)
         (playerCount - 1) /
         playerCount
 end
+function GameCompute.computeMatchSuccessPlayerPlusMoney(matchLevel, playerCount)
+    playerCount = math.max(playerCount, 2)
+    local averageMonsterCount = 45
+    return averageMonsterCount*
+        monLootGold(GameCompute.computeMonsterLevel(matchLevel)) *
+        (playerCount - 1) /
+        playerCount -
+        averageMonsterCount*
+        monLootGold(GameCompute.computeMonsterLevel(matchLevel)) *
+        1 /2
+end
 
 local function getNextLvTime(lv)
     if lv < 11 then
@@ -5732,8 +5743,8 @@ function Client_Game:receive(parameter)
                             command.mTimer = command.mTimer or new(Timer)
                             Tip(
                                 "战斗胜利，通关奖励：￥" ..
-                                    tostring(math.floor(parameter.mParameter.mAddMoney)) ..
-                                        "，" .. tostring(math.floor(5 - command.mTimer:total())) .. "秒后返回安全屋",
+                                    tostring(math.floor(parameter.mParameter.mAddMoney)) .."(人数加成+"..GameCompute.computeMatchSuccessPlayerPlusMoney(self.mProperty:cache().mLevel,#self.mPlayerManager.mPlayers)..
+                                        ")，" .. tostring(math.floor(5 - command.mTimer:total())) .. "秒后返回安全屋",
                                 1400,
                                 "255 255 0",
                                 "notice"
