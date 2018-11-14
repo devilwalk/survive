@@ -2504,15 +2504,15 @@ local function getNextLvTime(lv)
     end
 end
 
-local function getNextLvGold(lv)
+local function getNextSkillLvGold(lv)
     local C2 = 2
     local nextLvTime = getNextLvTime(lv)
     local killEfficiency = C2 / 60
     local goldEfficiency = lv * 20 + 40
     local nextLvGold = goldEfficiency * nextLvTime
     -- 三个技能升级
-    nextLvGold = processFloat(nextLvGold / 3, 2)
-    return nextLvGold
+    nextSkillLvGold = processFloat(nextLvGold / 3, 2)
+    return nextSkillLvGold
 end
 
 function monLootGold(lv)
@@ -2729,7 +2729,7 @@ local gameUi = {
             return getUiValue("upgrade_HP_background", "y") + 140
         end,
         onclick = function()
-            local money = getNextLvGold(saveData.mHPLevel)
+            local money = getNextSkillLvGold(saveData.mHPLevel)
             if saveData.mMoney >= money then
                 saveData.mMoney = saveData.mMoney - money
                 saveData.mHPLevel = saveData.mHPLevel + 1
@@ -2770,7 +2770,7 @@ local gameUi = {
         type = "Text",
         align = "_ct",
         text = function()
-            local text = "需要金钱：" .. tostring(getNextLvGold(saveData.mHPLevel or 1))
+            local text = "需要金钱：" .. tostring(getNextSkillLvGold(saveData.mHPLevel or 1))
             return text
         end,
         -- font_type = "Source Han Sans SC Bold",
@@ -2859,7 +2859,7 @@ local gameUi = {
             return getUiValue("upgrade_attack_background", "y") + 140
         end,
         onclick = function()
-            local money = getNextLvGold(saveData.mAttackValueLevel)
+            local money = getNextSkillLvGold(saveData.mAttackValueLevel)
             if saveData.mMoney >= money then
                 saveData.mMoney = saveData.mMoney - money
                 saveData.mAttackValueLevel = saveData.mAttackValueLevel + 1
@@ -2881,7 +2881,7 @@ local gameUi = {
         type = "Text",
         align = "_ct",
         text = function()
-            local text = "需要金钱：" .. tostring(getNextLvGold(saveData.mAttackValueLevel or 1))
+            local text = "需要金钱：" .. tostring(getNextSkillLvGold(saveData.mAttackValueLevel or 1))
             return text
         end,
         -- font_type = "Source Han Sans SC Bold",
@@ -2971,7 +2971,7 @@ local gameUi = {
             return getUiValue("upgrade_attSpeed_background", "y") + 140
         end,
         onclick = function()
-            local money = getNextLvGold(saveData.mAttackTimeLevel)
+            local money = getNextSkillLvGold(saveData.mAttackTimeLevel)
             if saveData.mMoney >= money then
                 saveData.mMoney = saveData.mMoney - money
                 saveData.mAttackTimeLevel = saveData.mAttackTimeLevel + 1
@@ -2993,7 +2993,7 @@ local gameUi = {
         type = "Text",
         align = "_ct",
         text = function()
-            local text = "需要金钱：" .. tostring(getNextLvGold(saveData.mAttackTimeLevel or 1))
+            local text = "需要金钱：" .. tostring(getNextSkillLvGold(saveData.mAttackTimeLevel or 1))
             return text
         end,
         -- font_type = "Source Han Sans SC Bold",
