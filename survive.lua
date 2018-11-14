@@ -2365,7 +2365,7 @@ GameConfig.mMonsterLibrary = {
 GameConfig.mTerrainLibrary = {
     {mTemplateResource = {hash = "FjSzbfpww1S3GAl4lPEniRIsL7nI", pid = "18337", ext = "bmax"}},
     {mTemplateResource = {hash = "FiR4Dr3SzSUP1lSyYqwea3kY0Gt_", pid = "18348", ext = "bmax"}},
-    {mTemplateResource = {hash = "FrjOcjFP-C4TyfVtl49khSMvtU8a", pid = "18319", ext = "bmax"}}
+    {mTemplateResource = {hash="Fud4CIp12fSI08GbINm7I0VWrubw",pid="18558",ext="bmax",}}
 }
 GameConfig.mSafeHouse = {mTemplateResource = {hash = "FpHOk_oMV1lBqaTtMLjqAtqyzJp4", pid = "5453", ext = "bmax"}}
 GameConfig.mMatch = {
@@ -6176,6 +6176,8 @@ function Client_GamePlayer:construction(parameter)
                         else
                             self.mCameraMode = 3
                         end
+                    elseif event.keyname == "DIK_ESCAPE" then
+                        self.mCameraMode = 2
                     end
                 end
             end
@@ -6478,7 +6480,7 @@ function Client_GamePlayer:_updateBloodUI()
             }
         )
     end
-    if self.mProperty:cache().mHP and self.mProperty:cache().mHPLevel then
+    if self.mProperty:cache().mHP and self.mProperty:cache().mHPLevel and self.mBloodUI then
         self.mBloodUI.width =
             200 * self.mProperty:cache().mHP / GameCompute.computePlayerHP(self.mProperty:cache().mHPLevel)
     end
