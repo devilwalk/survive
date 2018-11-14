@@ -119,7 +119,7 @@ local function restoreBlock(x, y, z)
         SetBlock(x, y, z, gOriginBlockIDs[key])
     end
 end
-local SavedData = {mMoney = 10000}
+local SavedData = {mMoney = 10000000000}
 local function getSavedData()
     return GetSavedData() or SavedData
 end
@@ -770,21 +770,20 @@ end
 function EntityCustom:construction(parameter)
     self.mEntity = CreateEntity(parameter.mX, parameter.mY, parameter.mZ, parameter.mModel)
     self.mClientKey = parameter.mClientKey
-    self.mHostKey = parameter.mHostKey
-
-    Host.addListener("EntityCustom", self)
-    Client.addListener("EntityCustom", self)
+    self:setHostKey(parameter.mHostKey)
 end
 
 function EntityCustom:destruction()
     self.mEntity:SetDead(true)
 
-    Host.removeListener("EntityCustom", self)
-    Client.removeListener("EntityCustom", self)
+    if self:_getSendKey() then
+        Host.removeListener(self:_getSendKey(), self)
+        Client.removeListener(self:_getSendKey(), self)
+    end
 end
 
 function EntityCustom:sendToHost(message, parameter)
-    Client.sendToHost("EntityCustom", {mMessage = message, mParameter = parameter})
+    Client.sendToHost(self:_getSendKey(), {mMessage = message, mParameter = parameter})
 end
 
 function EntityCustom:requestToHost(message, parameter)
@@ -794,15 +793,15 @@ function EntityCustom:requestToHost(message, parameter)
 end
 
 function EntityCustom:hostSendToClient(playerID, message, parameter)
-    Host.sendTo(playerID, {mKey = "EntityCustom", mMessage = message, mParameter = parameter})
+    Host.sendTo(playerID, {mKey = self:_getSendKey(), mMessage = message, mParameter = parameter})
 end
 
 function EntityCustom:clientSendToClient(playerID, message, parameter)
-    Client.sendToClient(playerID, "EntityCustom", {mMessage = message, mParameter = parameter})
+    Client.sendToClient(playerID, self:_getSendKey(), {mMessage = message, mParameter = parameter})
 end
 
 function EntityCustom:broadcast(message, parameter)
-    Client.broadcast("EntityCustom", {mMessage = message, mParameter = parameter})
+    Client.broadcast(self:_getSendKey(), {mMessage = message, mParameter = parameter})
 end
 
 function EntityCustom:receive(parameter)
@@ -820,12 +819,26 @@ function EntityCustom:receive(parameter)
     end
 end
 
+function EntityCustom:setHostKey(hostKey)
+    self.mHostKey = hostKey
+    if self:_getSendKey() then
+        Host.addListener(self:_getSendKey(), self)
+        Client.addListener(self:_getSendKey(), self)
+    end
+end
+
 function EntityCustom:setPositionReal(x, y, z)
     self:broadcast("SetPositionReal", {mX = x, mY = y, mZ = z})
 end
 
 function EntityCustom:_setPositionReal(x, y, z)
     self.mEntity:SetPosition(x, y, z)
+end
+
+function EntityCustom:_getSendKey()
+    if self.mHostKey then
+        return "EntityCustom" .. tostring(self.mHostKey)
+    end
 end
 -----------------------------------------------------------------------------------------EntityCustomManager-----------------------------------------------------------------------------------------
 function EntityCustomManager.singleton()
@@ -888,7 +901,7 @@ function EntityCustomManager:receive(parameter)
                 )
             end
         elseif parameter.mMessage == "DestroyEntity" then
-            self:_destroyEntity(parameter.mParameter.mHostKey)
+            self:_destroyEntity(self:getEntityByHostKey(parameter.mParameter.mHostKey))
         elseif parameter.mMessage == "CreateTrackEntity" then
             if parameter.mParameter.mPlayerID ~= GetPlayerId() then
                 self:_createTrackEntity(parameter.mParameter.mTracks)
@@ -930,12 +943,14 @@ function EntityCustomManager:createEntity(x, y, z, model, callback)
         function(parameter)
             local entity = self:getEntityByClientKey(client_key)
             if entity then
-                entity.mHostKey = parameter.mHostKey
+                entity:setHostKey(parameter.mHostKey)
                 self.mFakeEntities[client_key] = nil
             else
                 self.mFakeEntities[client_key].mHostKey = parameter.mHostKey
             end
-            callback(entity.mHostKey)
+            if callback then
+                callback(entity.mHostKey)
+            end
         end
     )
     return client_key
@@ -969,7 +984,7 @@ function EntityCustomManager:destroyEntity(clientKey)
             new(
                 Command_Callback,
                 {
-                    mDebug = "EntityCustomManager:createEntityTrack",
+                    mDebug = "EntityCustomManager:destroyEntity",
                     mExecutingCallback = function(command)
                         local fake_entity = self.mFakeEntities[client_key]
                         if fake_entity and fake_entity.mHostKey then
@@ -2704,6 +2719,25 @@ local gameUi = {
             if saveData.mMoney >= money then
                 saveData.mMoney = saveData.mMoney - money
                 saveData.mHPLevel = saveData.mHPLevel + 1
+                local x,y,z = GetPlayer():GetBlockPos()
+                local client_key = EntityCustomManager.singleton():createEntity(x,y,z,"character/v5/09effect/Upgrade/Upgrade_CirqueGlowRed.x",function(hostKey)
+                end)
+                CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "UpdateLevel",mExecutingCallback = function(command)
+                    command.mTimer = command.mTimer or new(Timer)
+                    command.mEntitySyncTimer = command.mEntitySyncTimer or new(Timer)
+                    local entity = EntityCustomManager.singleton():getEntityByClientKey(client_key)
+                    if command.mEntitySyncTimer:total() > 0.1 then
+                        if entity.mHostKey then
+                            entity:setPositionReal(GetPlayer():getPosition()[1],GetPlayer():getPosition()[2],GetPlayer():getPosition()[3])
+                        end
+                        delete(command.mEntitySyncTimer)
+                        command.mEntitySyncTimer = nil
+                    end
+                    if command.mTimer:total() > 0.5 then
+                        EntityCustomManager.singleton():destroyEntity(client_key)
+                        command.mState = Command.EState.Finish
+                    end
+                end}))
             end
         end,
         font_bold = true,
@@ -4662,7 +4696,10 @@ function Host_Game:_nextMatch()
                 mDebug = "Host_Game:_nextMatch/Prepare",
                 mExecutingCallback = function(command)
                     command.mTimer = command.mTimer or new(Timer)
-                    self.mProperty:safeWrite("mSafeHouseLeftTime", GameConfig.mPrepareTime - command.mTimer:total())
+                    local left_time = math.floor(GameConfig.mPrepareTime - command.mTimer:total())
+                    if left_time ~= self.mProperty:cache().mSafeHouseLeftTime then
+                        self.mProperty:safeWrite("mSafeHouseLeftTime", left_time)
+                    end
                     if command.mTimer:total() >= GameConfig.mPrepareTime then
                         command.mState = Command.EState.Finish
                     end
@@ -4755,10 +4792,13 @@ function Host_Game:_nextMatch()
                                                 )
                                                 command.mState = Command.EState.Finish
                                             else
-                                                self.mProperty:safeWrite(
-                                                    "mFightLeftTime",
-                                                    GameConfig.mMatch.mTime - command.mTimer:total()
-                                                )
+                                                local left_time = math.floor(GameConfig.mMatch.mTime - command.mTimer:total())
+                                                if left_time ~= self.mProperty:cache().mFightLeftTime then
+                                                    self.mProperty:safeWrite(
+                                                        "mFightLeftTime",
+                                                        left_time
+                                                    )
+                                                end
                                                 if command.mTimer:total() >= GameConfig.mMatch.mTime then
                                                     self:broadcast("FightFail")
                                                     self.mCommandQueue:post(
