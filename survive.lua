@@ -5950,7 +5950,7 @@ function Client_GamePlayerManager:construction()
         "PlayerIn",
         "Client_GamePlayerManager",
         function(inst, parameter)
-            echo("devilwalk","Client_GamePlayerManager:construction:PlayerIn:"..tostring(inst.id))
+            echo("devilwalk","Client_GamePlayerManager:construction:PlayerIn:"..tostring(parameter.mPlayerID))
             self:_createPlayer(parameter.mPlayerID)
         end,
         self
@@ -5959,7 +5959,7 @@ function Client_GamePlayerManager:construction()
         "PlayerRemoved",
         "Client_GamePlayerManager",
         function(inst, parameter)
-            echo("devilwalk","Client_GamePlayerManager:construction:PlayerRemoved:"..tostring(inst.id))
+            echo("devilwalk","Client_GamePlayerManager:construction:PlayerRemoved:"..tostring(parameter.mPlayerID))
             self:_destroyPlayer(parameter.mPlayerID)
         end,
         self
