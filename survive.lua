@@ -119,7 +119,7 @@ local function restoreBlock(x, y, z)
         SetBlock(x, y, z, gOriginBlockIDs[key])
     end
 end
-local SavedData = {mMoney = 10000}
+local SavedData = {mMoney = 10000000000}
 local function getSavedData()
     return GetSavedData() or SavedData
 end
@@ -142,8 +142,8 @@ local InputManager = {}
 local PlayerManager = {}
 local UI = {}
 -----------------------------------------------------------------------------------------Framework-----------------------------------------------------------------------------------
-function Framework.singleton()
-    if not Framework.msInstance then
+function Framework.singleton(construct)
+    if not Framework.msInstance and construct then
         Framework.msInstance = new(Framework)
     end
     return Framework.msInstance
@@ -160,6 +160,7 @@ function Framework:destruction()
     delete(CommandQueueManager.singleton())
     delete(EntityCustomManager.singleton())
     MiniGameUISystem.shutdown()
+    Framework.msInstance = nil
 end
 
 function Framework:update()
@@ -770,21 +771,20 @@ end
 function EntityCustom:construction(parameter)
     self.mEntity = CreateEntity(parameter.mX, parameter.mY, parameter.mZ, parameter.mModel)
     self.mClientKey = parameter.mClientKey
-    self.mHostKey = parameter.mHostKey
-
-    Host.addListener("EntityCustom", self)
-    Client.addListener("EntityCustom", self)
+    self:setHostKey(parameter.mHostKey)
 end
 
 function EntityCustom:destruction()
     self.mEntity:SetDead(true)
 
-    Host.removeListener("EntityCustom", self)
-    Client.removeListener("EntityCustom", self)
+    if self:_getSendKey() then
+        Host.removeListener(self:_getSendKey(), self)
+        Client.removeListener(self:_getSendKey(), self)
+    end
 end
 
 function EntityCustom:sendToHost(message, parameter)
-    Client.sendToHost("EntityCustom", {mMessage = message, mParameter = parameter})
+    Client.sendToHost(self:_getSendKey(), {mMessage = message, mParameter = parameter})
 end
 
 function EntityCustom:requestToHost(message, parameter)
@@ -794,15 +794,15 @@ function EntityCustom:requestToHost(message, parameter)
 end
 
 function EntityCustom:hostSendToClient(playerID, message, parameter)
-    Host.sendTo(playerID, {mKey = "EntityCustom", mMessage = message, mParameter = parameter})
+    Host.sendTo(playerID, {mKey = self:_getSendKey(), mMessage = message, mParameter = parameter})
 end
 
 function EntityCustom:clientSendToClient(playerID, message, parameter)
-    Client.sendToClient(playerID, "EntityCustom", {mMessage = message, mParameter = parameter})
+    Client.sendToClient(playerID, self:_getSendKey(), {mMessage = message, mParameter = parameter})
 end
 
 function EntityCustom:broadcast(message, parameter)
-    Client.broadcast("EntityCustom", {mMessage = message, mParameter = parameter})
+    Client.broadcast(self:_getSendKey(), {mMessage = message, mParameter = parameter})
 end
 
 function EntityCustom:receive(parameter)
@@ -820,12 +820,26 @@ function EntityCustom:receive(parameter)
     end
 end
 
+function EntityCustom:setHostKey(hostKey)
+    self.mHostKey = hostKey
+    if self:_getSendKey() then
+        Host.addListener(self:_getSendKey(), self)
+        Client.addListener(self:_getSendKey(), self)
+    end
+end
+
 function EntityCustom:setPositionReal(x, y, z)
     self:broadcast("SetPositionReal", {mX = x, mY = y, mZ = z})
 end
 
 function EntityCustom:_setPositionReal(x, y, z)
     self.mEntity:SetPosition(x, y, z)
+end
+
+function EntityCustom:_getSendKey()
+    if self.mHostKey then
+        return "EntityCustom" .. tostring(self.mHostKey)
+    end
 end
 -----------------------------------------------------------------------------------------EntityCustomManager-----------------------------------------------------------------------------------------
 function EntityCustomManager.singleton()
@@ -888,7 +902,7 @@ function EntityCustomManager:receive(parameter)
                 )
             end
         elseif parameter.mMessage == "DestroyEntity" then
-            self:_destroyEntity(parameter.mParameter.mHostKey)
+            self:_destroyEntity(self:getEntityByHostKey(parameter.mParameter.mHostKey))
         elseif parameter.mMessage == "CreateTrackEntity" then
             if parameter.mParameter.mPlayerID ~= GetPlayerId() then
                 self:_createTrackEntity(parameter.mParameter.mTracks)
@@ -930,12 +944,14 @@ function EntityCustomManager:createEntity(x, y, z, model, callback)
         function(parameter)
             local entity = self:getEntityByClientKey(client_key)
             if entity then
-                entity.mHostKey = parameter.mHostKey
+                entity:setHostKey(parameter.mHostKey)
                 self.mFakeEntities[client_key] = nil
             else
                 self.mFakeEntities[client_key].mHostKey = parameter.mHostKey
             end
-            callback(entity.mHostKey)
+            if callback then
+                callback(entity.mHostKey)
+            end
         end
     )
     return client_key
@@ -969,7 +985,7 @@ function EntityCustomManager:destroyEntity(clientKey)
             new(
                 Command_Callback,
                 {
-                    mDebug = "EntityCustomManager:createEntityTrack",
+                    mDebug = "EntityCustomManager:destroyEntity",
                     mExecutingCallback = function(command)
                         local fake_entity = self.mFakeEntities[client_key]
                         if fake_entity and fake_entity.mHostKey then
@@ -1679,6 +1695,7 @@ function PlayerManager.initialize()
     EntityWatcher.on(
         "create",
         function(inst)
+            echo("devilwalk","PlayerManager.initialize:EntityWatcher.on:inst:"..tostring(inst.id))
             PlayerManager.onPlayerIn(inst)
             if PlayerManager.mHideAll then
                 PlayerManager.hideAll()
@@ -2365,7 +2382,7 @@ GameConfig.mMonsterLibrary = {
 GameConfig.mTerrainLibrary = {
     {mTemplateResource = {hash = "FjSzbfpww1S3GAl4lPEniRIsL7nI", pid = "18337", ext = "bmax"}},
     {mTemplateResource = {hash = "FiR4Dr3SzSUP1lSyYqwea3kY0Gt_", pid = "18348", ext = "bmax"}},
-    {mTemplateResource = {hash = "FrjOcjFP-C4TyfVtl49khSMvtU8a", pid = "18319", ext = "bmax"}}
+    {mTemplateResource = {hash="Fud4CIp12fSI08GbINm7I0VWrubw",pid="18558",ext="bmax",}}
 }
 GameConfig.mSafeHouse = {mTemplateResource = {hash = "FpHOk_oMV1lBqaTtMLjqAtqyzJp4", pid = "5453", ext = "bmax"}}
 GameConfig.mMatch = {
@@ -2457,10 +2474,22 @@ end
 
 function GameCompute.computeMatchSuccessMoney(matchLevel, playerCount)
     playerCount = math.max(playerCount, 2)
-    return GameCompute.computeMonsterGenerateCount(matchLevel) *
+    local averageMonsterCount = 45
+    return averageMonsterCount*
         monLootGold(GameCompute.computeMonsterLevel(matchLevel)) *
         (playerCount - 1) /
         playerCount
+end
+function GameCompute.computeMatchSuccessPlayerPlusMoney(matchLevel, playerCount)
+    playerCount = math.max(playerCount, 2)
+    local averageMonsterCount = 45
+    return averageMonsterCount*
+        monLootGold(GameCompute.computeMonsterLevel(matchLevel)) *
+        (playerCount - 1) /
+        playerCount -
+        averageMonsterCount*
+        monLootGold(GameCompute.computeMonsterLevel(matchLevel)) *
+        1 /2
 end
 
 local function getNextLvTime(lv)
@@ -2475,15 +2504,15 @@ local function getNextLvTime(lv)
     end
 end
 
-local function getNextLvGold(lv)
+local function getNextSkillLvGold(lv)
     local C2 = 2
     local nextLvTime = getNextLvTime(lv)
     local killEfficiency = C2 / 60
     local goldEfficiency = lv * 20 + 40
     local nextLvGold = goldEfficiency * nextLvTime
     -- 三个技能升级
-    nextLvGold = processFloat(nextLvGold / 3, 2)
-    return nextLvGold
+    nextSkillLvGold = processFloat(nextLvGold / 3, 2)
+    return nextSkillLvGold
 end
 
 function monLootGold(lv)
@@ -2700,10 +2729,29 @@ local gameUi = {
             return getUiValue("upgrade_HP_background", "y") + 140
         end,
         onclick = function()
-            local money = getNextLvGold(saveData.mHPLevel)
+            local money = getNextSkillLvGold(saveData.mHPLevel)
             if saveData.mMoney >= money then
                 saveData.mMoney = saveData.mMoney - money
                 saveData.mHPLevel = saveData.mHPLevel + 1
+                local x,y,z = GetPlayer():GetBlockPos()
+                local client_key = EntityCustomManager.singleton():createEntity(x,y,z,"character/v5/09effect/Upgrade/Upgrade_CirqueGlowRed.x",function(hostKey)
+                end)
+                CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "UpdateLevel",mExecutingCallback = function(command)
+                    command.mTimer = command.mTimer or new(Timer)
+                    command.mEntitySyncTimer = command.mEntitySyncTimer or new(Timer)
+                    local entity = EntityCustomManager.singleton():getEntityByClientKey(client_key)
+                    if command.mEntitySyncTimer:total() > 0.1 then
+                        if entity.mHostKey then
+                            entity:setPositionReal(GetPlayer():getPosition()[1],GetPlayer():getPosition()[2],GetPlayer():getPosition()[3])
+                        end
+                        delete(command.mEntitySyncTimer)
+                        command.mEntitySyncTimer = nil
+                    end
+                    if command.mTimer:total() > 0.5 then
+                        EntityCustomManager.singleton():destroyEntity(client_key)
+                        command.mState = Command.EState.Finish
+                    end
+                end}))
             end
         end,
         font_bold = true,
@@ -2722,7 +2770,7 @@ local gameUi = {
         type = "Text",
         align = "_ct",
         text = function()
-            local text = "需要金钱：" .. tostring(getNextLvGold(saveData.mHPLevel or 1))
+            local text = "需要金钱：" .. tostring(getNextSkillLvGold(saveData.mHPLevel or 1))
             return text
         end,
         -- font_type = "Source Han Sans SC Bold",
@@ -2811,7 +2859,7 @@ local gameUi = {
             return getUiValue("upgrade_attack_background", "y") + 140
         end,
         onclick = function()
-            local money = getNextLvGold(saveData.mAttackValueLevel)
+            local money = getNextSkillLvGold(saveData.mAttackValueLevel)
             if saveData.mMoney >= money then
                 saveData.mMoney = saveData.mMoney - money
                 saveData.mAttackValueLevel = saveData.mAttackValueLevel + 1
@@ -2833,7 +2881,7 @@ local gameUi = {
         type = "Text",
         align = "_ct",
         text = function()
-            local text = "需要金钱：" .. tostring(getNextLvGold(saveData.mAttackValueLevel or 1))
+            local text = "需要金钱：" .. tostring(getNextSkillLvGold(saveData.mAttackValueLevel or 1))
             return text
         end,
         -- font_type = "Source Han Sans SC Bold",
@@ -2923,7 +2971,7 @@ local gameUi = {
             return getUiValue("upgrade_attSpeed_background", "y") + 140
         end,
         onclick = function()
-            local money = getNextLvGold(saveData.mAttackTimeLevel)
+            local money = getNextSkillLvGold(saveData.mAttackTimeLevel)
             if saveData.mMoney >= money then
                 saveData.mMoney = saveData.mMoney - money
                 saveData.mAttackTimeLevel = saveData.mAttackTimeLevel + 1
@@ -2945,7 +2993,7 @@ local gameUi = {
         type = "Text",
         align = "_ct",
         text = function()
-            local text = "需要金钱：" .. tostring(getNextLvGold(saveData.mAttackTimeLevel or 1))
+            local text = "需要金钱：" .. tostring(getNextSkillLvGold(saveData.mAttackTimeLevel or 1))
             return text
         end,
         -- font_type = "Source Han Sans SC Bold",
@@ -3240,7 +3288,7 @@ local gameUi = {
         shadow = true,
         font_color = "255 255 255",
         visible = function()
-            return getUiValue("levelInfo_background", "visible")
+            return true
         end
     },
     -- 排行榜
@@ -3562,7 +3610,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") - 40
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(1)
+          local level = 1
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
@@ -3594,7 +3654,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") - 40
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(30)
+          local level = 30
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
@@ -3626,7 +3698,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") - 40
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(60)
+          local level = 60
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
@@ -3658,7 +3742,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") - 40
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(90)
+          local level = 90
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
@@ -3690,7 +3786,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") - 40
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(120)
+          local level = 120
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
@@ -3722,7 +3830,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") + 80
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(150)
+          local level = 150
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
@@ -3754,7 +3874,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") + 80
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(180)
+          local level = 180
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
@@ -3786,7 +3918,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") + 80
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(210)
+          local level = 210
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
@@ -3818,7 +3962,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") + 80
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(240)
+          local level = 240
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
@@ -3850,7 +4006,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") + 80
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(270)
+          local level = 270
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
@@ -4012,6 +4180,11 @@ local gameUi = {
         end,
         onclick = function()
             -- closeSafeHouseUI()
+            if getUiValue("agree_button","onclickCallback") then
+                getUiValue("agree_button","onclickCallback")()
+            end
+            setUiValue("agree_text","font_color","255 255 0")
+            setUiValue("disagree_text","font_color","255 255 255")
         end,
         font_bold = true,
         height = 50,
@@ -4022,7 +4195,8 @@ local gameUi = {
         font_color = "220 20 60",
         visible = function()
             return getUiValue("voteLevel_background", "visible")
-        end
+        end,
+        enabled = true
     },
     {
         ui_name = "disagree_button",
@@ -4044,6 +4218,11 @@ local gameUi = {
         end,
         onclick = function()
             -- closeSafeHouseUI()
+            if getUiValue("disagree_button","onclickCallback") then
+                getUiValue("disagree_button","onclickCallback")()
+            end
+            setUiValue("agree_text","font_color","255 255 255")
+            setUiValue("disagree_text","font_color","255 255 0")
         end,
         font_bold = true,
         height = 50,
@@ -4054,7 +4233,8 @@ local gameUi = {
         font_color = "220 20 60",
         visible = function()
             return getUiValue("voteLevel_background", "visible")
-        end
+        end,
+        enabled = true
     },
     {
         ui_name = "agree_text",
@@ -4530,7 +4710,10 @@ function Host_Game:_nextMatch()
                 mDebug = "Host_Game:_nextMatch/Prepare",
                 mExecutingCallback = function(command)
                     command.mTimer = command.mTimer or new(Timer)
-                    self.mProperty:safeWrite("mSafeHouseLeftTime", GameConfig.mPrepareTime - command.mTimer:total())
+                    local left_time = math.floor(GameConfig.mPrepareTime - command.mTimer:total())
+                    if left_time ~= self.mProperty:cache().mSafeHouseLeftTime then
+                        self.mProperty:safeWrite("mSafeHouseLeftTime", left_time)
+                    end
                     if command.mTimer:total() >= GameConfig.mPrepareTime then
                         command.mState = Command.EState.Finish
                     end
@@ -4623,10 +4806,13 @@ function Host_Game:_nextMatch()
                                                 )
                                                 command.mState = Command.EState.Finish
                                             else
-                                                self.mProperty:safeWrite(
-                                                    "mFightLeftTime",
-                                                    GameConfig.mMatch.mTime - command.mTimer:total()
-                                                )
+                                                local left_time = math.floor(GameConfig.mMatch.mTime - command.mTimer:total())
+                                                if left_time ~= self.mProperty:cache().mFightLeftTime then
+                                                    self.mProperty:safeWrite(
+                                                        "mFightLeftTime",
+                                                        left_time
+                                                    )
+                                                end
                                                 if command.mTimer:total() >= GameConfig.mMatch.mTime then
                                                     self:broadcast("FightFail")
                                                     self.mCommandQueue:post(
@@ -4690,6 +4876,7 @@ function Host_GamePlayerManager:construction()
         "PlayerIn",
         "Host_GamePlayerManager",
         function(inst, parameter)
+            echo("devilwalk","Host_GamePlayerManager:construction:PlayerIn:"..tostring(parameter.mPlayerID))
             self:_createPlayer(EntityWatcher.get(parameter.mPlayerID))
         end,
         self
@@ -4698,6 +4885,7 @@ function Host_GamePlayerManager:construction()
         "PlayerRemoved",
         "Host_GamePlayerManager",
         function(inst, parameter)
+            echo("devilwalk","Host_GamePlayerManager:construction:PlayerRemoved:"..tostring(parameter.mPlayerID))
             self:_destroyPlayer(parameter.mPlayerID)
         end,
         self
@@ -5558,8 +5746,8 @@ function Client_Game:receive(parameter)
                             command.mTimer = command.mTimer or new(Timer)
                             Tip(
                                 "战斗胜利，通关奖励：￥" ..
-                                    tostring(math.floor(parameter.mParameter.mAddMoney)) ..
-                                        "，" .. tostring(math.floor(5 - command.mTimer:total())) .. "秒后返回安全屋",
+                                    tostring(math.floor(parameter.mParameter.mAddMoney)) .."(人数加成+"..GameCompute.computeMatchSuccessPlayerPlusMoney(self.mProperty:cache().mLevel,#self.mPlayerManager.mPlayers)..
+                                        ")，" .. tostring(math.floor(5 - command.mTimer:total())) .. "秒后返回安全屋",
                                 1400,
                                 "255 255 0",
                                 "notice"
@@ -5638,26 +5826,67 @@ function Client_Game:receive(parameter)
             if parameter.mParameter.mRequester ~= GetPlayerId() then
                 setUiValue(
                     "agree_button",
-                    "onclick",
+                    "enabled",
+                    true
+                )
+                setUiValue(
+                    "disagree_button",
+                    "enabled",
+                    true
+                )
+                setUiValue(
+                    "agree_button",
+                    "onclickCallback",
                     function()
                         self:sendToHost(
                             "SwitchLevelAnswer",
                             {mResult = true, mRequester = parameter.mParameter.mRequester}
                         )
+                        setUiValue(
+                            "agree_button",
+                            "enabled",
+                            false
+                        )
+                        setUiValue(
+                            "disagree_button",
+                            "enabled",
+                            false
+                        )
                     end
                 )
                 setUiValue(
                     "disagree_button",
-                    "onclick",
+                    "onclickCallback",
                     function()
                         self:sendToHost(
                             "SwitchLevelAnswer",
                             {mResult = false, mRequester = parameter.mParameter.mRequester}
                         )
+                        setUiValue(
+                            "agree_button",
+                            "enabled",
+                            false
+                        )
+                        setUiValue(
+                            "disagree_button",
+                            "enabled",
+                            false
+                        )
                     end
                 )
             else
                 self:sendToHost("SwitchLevelAnswer", {mResult = true, mRequester = parameter.mParameter.mRequester})
+                setUiValue("agree_text","font_color","255 255 0")
+                setUiValue(
+                    "agree_button",
+                    "enabled",
+                    false
+                )
+                setUiValue(
+                    "disagree_button",
+                    "enabled",
+                    false
+                )
             end
         end
     end
@@ -5723,6 +5952,7 @@ function Client_GamePlayerManager:construction()
         "PlayerIn",
         "Client_GamePlayerManager",
         function(inst, parameter)
+            echo("devilwalk","Client_GamePlayerManager:construction:PlayerIn:"..tostring(parameter.mPlayerID))
             self:_createPlayer(parameter.mPlayerID)
         end,
         self
@@ -5731,6 +5961,7 @@ function Client_GamePlayerManager:construction()
         "PlayerRemoved",
         "Client_GamePlayerManager",
         function(inst, parameter)
+            echo("devilwalk","Client_GamePlayerManager:construction:PlayerRemoved:"..tostring(parameter.mPlayerID))
             self:_destroyPlayer(parameter.mPlayerID)
         end,
         self
@@ -5740,6 +5971,8 @@ end
 
 function Client_GamePlayerManager:destruction()
     self:reset()
+    PlayerManager.removeEventListener("PlayerIn","Client_GamePlayerManager")
+    PlayerManager.removeEventListener("PlayerRemoved","Client_GamePlayerManager")
     Client.removeListener("GamePlayerManager", self)
 end
 
@@ -5996,6 +6229,20 @@ function Client_GamePlayer:construction(parameter)
                             "visible",
                             not getUiValue("chooseLevel_background", "visible")
                         )
+                    elseif event.keyname == "DIK_O" then
+                        self.mCameraMode = self.mCameraMode or 3
+                        if self.mCameraMode == 3 then
+                            self.mCameraMode = 1
+                        else
+                            self.mCameraMode = 3
+                        end
+                    elseif event.keyname == "DIK_ESCAPE" then
+                        self.mCameraMode = self.mCameraMode or 3
+                        if self.mCameraMode == 3 then
+                            self.mCameraMode = 2
+                        else
+                            self.mCameraMode = 3
+                        end
                     end
                 end
             end
@@ -6122,6 +6369,7 @@ function Client_GamePlayer:update()
         if self.mProperty:cache().mHP and self.mProperty:cache().mHP <= 0 then
             Tip("你已经死亡，需要等待关卡结束后复活......", 3000, "255 255 0", "die")
         end
+        self:_updateCameraMode()
     end
 end
 
@@ -6151,7 +6399,7 @@ function Client_GamePlayer:receive(parameter)
                         y = -80,
                         x = -80,
                         height = 50,
-                        width = 200,
+                        width = 300,
                         visible = true,
                         text = "+￥" .. tostring(processFloat(parameter.mParameter.mMoney, 2))
                     }
@@ -6297,7 +6545,7 @@ function Client_GamePlayer:_updateBloodUI()
             }
         )
     end
-    if self.mProperty:cache().mHP and self.mProperty:cache().mHPLevel then
+    if self.mProperty:cache().mHP and self.mProperty:cache().mHPLevel and self.mBloodUI then
         self.mBloodUI.width =
             200 * self.mProperty:cache().mHP / GameCompute.computePlayerHP(self.mProperty:cache().mHPLevel)
     end
@@ -6321,6 +6569,23 @@ function Client_GamePlayer:_updateGun()
     for i = 2, 9 do
         local bullets = CreateItemStack(50101, 999)
         SetItemStackToInventory(i, bullets)
+    end
+end
+
+function Client_GamePlayer:_updateCameraMode()
+    if getUiValue("upgrade_background","visible")
+    or getUiValue("chooseLevel_background","visible")
+    or getUiValue("voteLevel_background","visible")
+    then
+        SetCameraMode(2)
+    else
+        SetCameraMode(self.mCameraMode or 3)
+        self.mCameraModeTimer = self.mCameraModeTimer or new(Timer)
+        if self.mCameraModeTimer:total() > 60 then
+            Tip("O键切换视角", 5000, "255 255 0", "SwitchCamera")
+            delete(self.mCameraModeTimer)
+            self.mCameraModeTimer = nil
+        end
     end
 end
 -----------------------------------------------------------------------------------------Client_GameMonster-----------------------------------------------------------------------------------
@@ -6551,7 +6816,7 @@ end
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- 入口
 function main()
-    Framework.singleton()
+    Framework.singleton(true)
     Client_Game.singleton(true)
     Revive()
     SendTo("host", {mMessage = "CheckHost"})
@@ -6574,7 +6839,9 @@ end
 
 -- 获取输入
 function handleInput(event)
-    Framework.singleton():handleInput(event)
+    if Framework.singleton() then
+        Framework.singleton():handleInput(event)
+    end
     return WeaponSystem.input(event)
 end
 
@@ -6598,14 +6865,20 @@ function receiveMsg(parameter)
     elseif parameter.mMessage == "Clear" then
         clear()
     end
-    Framework.singleton():receiveMsg(parameter)
+    if Framework.singleton() then
+        Framework.singleton():receiveMsg(parameter)
+    end
 end
 
 function update()
-    Framework.singleton():update()
+    if Framework.singleton() then
+        Framework.singleton():update()
+    end
     local delta_time = Timer.global():delta()
     if Host_Game.singleton() then
         Host_Game.singleton():update(delta_time)
     end
-    Client_Game.singleton():update(delta_time)
+    if Client_Game.singleton() then
+        Client_Game.singleton():update(delta_time)
+    end
 end
