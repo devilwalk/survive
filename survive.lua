@@ -3562,7 +3562,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") - 40
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(1)
+          local level = 1
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
@@ -3594,7 +3606,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") - 40
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(30)
+          local level = 30
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
@@ -3626,7 +3650,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") - 40
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(60)
+          local level = 60
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
@@ -3658,7 +3694,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") - 40
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(90)
+          local level = 90
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
@@ -3690,7 +3738,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") - 40
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(120)
+          local level = 120
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
@@ -3722,7 +3782,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") + 80
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(150)
+          local level = 150
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
@@ -3754,7 +3826,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") + 80
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(180)
+          local level = 180
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
@@ -3786,7 +3870,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") + 80
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(210)
+          local level = 210
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
@@ -3818,7 +3914,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") + 80
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(240)
+          local level = 240
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
@@ -3850,7 +3958,19 @@ local gameUi = {
             return getUiValue("chooseLevel_background", "y") + 80
         end,
         onclick = function()
-            Client_Game.singleton():switchLevel(270)
+          local level = 270
+          local player = Client_Game.singleton():getPlayerManager():getPlayerByID()
+          local fightLevel = GameCompute.computePlayerFightLevel(
+              (player:getProperty():cache().mHPLevel or 1) - 1,
+              (player:getProperty():cache().mAttackValueLevel or 1) - 1,
+              (player:getProperty():cache().mAttackTimeLevel or 1) - 1
+          )
+          if fightLevel >= level then
+            Tip("你已选择关卡"..level.."等待其他玩家投票...", 3000, "255 255 0", "reload")
+            Client_Game.singleton():switchLevel(level)
+          else
+            Tip("需要战斗力等级达到"..level.."，才能选择此关！", 3000, "255 255 0", "reload")
+          end
         end,
         font_bold = true,
         height = 50,
