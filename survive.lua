@@ -6217,7 +6217,12 @@ function Client_GamePlayer:construction(parameter)
                             self.mCameraMode = 3
                         end
                     elseif event.keyname == "DIK_ESCAPE" then
-                        self.mCameraMode = 2
+                        self.mCameraMode = self.mCameraMode or 3
+                        if self.mCameraMode == 3 then
+                            self.mCameraMode = 2
+                        else
+                            self.mCameraMode = 3
+                        end
                     end
                 end
             end
