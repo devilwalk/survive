@@ -1694,6 +1694,7 @@ function PlayerManager.initialize()
     EntityWatcher.on(
         "create",
         function(inst)
+            echo("devilwalk","PlayerManager.initialize:EntityWatcher.on:inst:"..tostring(inst.id))
             PlayerManager.onPlayerIn(inst)
             if PlayerManager.mHideAll then
                 PlayerManager.hideAll()
@@ -5933,9 +5934,6 @@ end
 function Client_GamePlayerManager:construction()
     self.mPlayers = {}
 
-    for id, player in pairs(PlayerManager.mPlayers) do
-        self:_createPlayer(EntityWatcher.get(id))
-    end
     PlayerManager.addEventListener(
         "PlayerIn",
         "Client_GamePlayerManager",
