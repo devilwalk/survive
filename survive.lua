@@ -1927,7 +1927,7 @@ GameConfig.mMonsterLibrary = {
 GameConfig.mTerrainLibrary = {
     {mTemplateResource = {hash = "FjSzbfpww1S3GAl4lPEniRIsL7nI", pid = "18337", ext = "bmax"}},
     {mTemplateResource = {hash = "FiR4Dr3SzSUP1lSyYqwea3kY0Gt_", pid = "18348", ext = "bmax"}},
-    {mTemplateResource = {hash="Fud4CIp12fSI08GbINm7I0VWrubw",pid="18558",ext="bmax",}}
+    {mTemplateResource = {hash="Frl94LvKRoNIWN4uyDV6nJ3jMhp7",pid="18796",ext="bmax",}}
 }
 GameConfig.mSafeHouse = {mTemplateResource = {hash = "FpHOk_oMV1lBqaTtMLjqAtqyzJp4", pid = "5453", ext = "bmax"}}
 GameConfig.mMatch = {
