@@ -770,7 +770,8 @@ function EntitySyncerManager:getByEntityID(entityID)
 end
 -----------------------------------------------------------------------------------------EntityCustom-----------------------------------------------------------------------------------------
 function EntityCustom:construction(parameter)
-    self.mRealX,self.mRealY,self.mRealZ = ConvertToRealPosition(parameter.mX,parameter.mY,parameter.mZ)
+    local real_x,real_y,real_z = ConvertToRealPosition(parameter.mX,parameter.mY,parameter.mZ)
+    self.mPosition = vector3d:new(real_x,real_y,real_z)
     self.mFacing = parameter.mModelFacing or 0
     if parameter.mModel then
         if parameter.mType == "EntityNPCOnline" then
@@ -828,28 +829,33 @@ function EntityCustom:destruction()
 end
 
 function EntityCustom:update()
-    if self.mTargetRealX or self.mTargetRealY or self.mTargetRealZ then
+    if next(self.mTargets) then
+        local target = self.mTargets[1]
         self.mTimer = self.mTimer or new(Timer)
         local speed = self.mMoveSpeed or 3
-        local dir = vector3d:new(self.mTargetRealX - self.mRealX,self.mTargetRealY - self.mRealY,self.mTargetRealZ - self.mRealZ):normalize()
-        self.mFacing = math.acos(dir:dot(1,0,0))
-        if dir[3] > 0 then
+        if not self.mMoveDirection then
+            self.mMoveDirection = (target - self.mPosition):normalize()
+            self.mFacing = math.acos(self.mMoveDirection:dot(1,0,0))
+        end
+        if self.mMoveDirection[3] > 0 then
             self.mFacing = -self.mFacing
         end
-        local next_pos = vector3d:new(self.mRealX,self.mRealY,self.mRealZ) + dir * speed * self.mTimer:delta()
-        if (next_pos - vector3d:new(self.mTargetRealX,self.mTargetRealY,self.mTargetRealZ)):length()<0.1 then
-            self:_setPositionReal(self.mTargetRealX,self.mTargetRealY,self.mTargetRealZ)
-            self:_moveToReal()
-        else
-            self:_setPositionReal(next_pos[1],next_pos[2],next_pos[3])
+        local next_pos = self.mPosition + self.mMoveDirection * speed * self.mTimer:delta()
+        if (target - next_pos):dot(self.mMoveDirection) <= 0 then
+            next_pos = target
+        end
+        self:_setPosition(next_pos[1],next_pos[2],next_pos[3])
+        if next_pos == target then
+            table.remove(self.mTargets,1)
+            self.mMoveDirection = nil
         end
     end
     if self.mEntity then
         if self.mFacing and self.mFacing ~= self.mEntity:GetFacing() then
             self.mEntity:SetFacing(self.mFacing)
         end
-        if not vector3d:new(self.mRealX,self.mRealY,self.mRealZ):equals(self.mEntity:getPosition()) then
-            self.mEntity:SetPosition(self.mRealX,self.mRealY,self.mRealZ)
+        if not self.mPosition:equals(self.mEntity:getPosition()) then
+            self.mEntity:SetPosition(self.mPosition[1],self.mPosition[2],self.mPosition[3])
         end
         if self.mAnimationID ~= self.mEntity:GetLastAnimId() then
             self.mEntity:SetAnimation(self.mAnimationID)
@@ -888,10 +894,10 @@ function EntityCustom:receive(parameter)
             self.mResponseCallback[message] = nil
         end
     else
-        if parameter.mMessage == "SetPositionReal" then
-            self:_setPositionReal(parameter.mParameter.mX, parameter.mParameter.mY, parameter.mParameter.mZ)
-        elseif parameter.mMessage == "MoveToReal" then
-            self:_moveToReal(parameter.mParameter.mX, parameter.mParameter.mY, parameter.mParameter.mZ)
+        if parameter.mMessage == "SetPosition" then
+            self:_setPosition(parameter.mParameter.mX, parameter.mParameter.mY, parameter.mParameter.mZ)
+        elseif parameter.mMessage == "MoveTo" then
+            self:_moveTo(parameter.mParameter.mX, parameter.mParameter.mY, parameter.mParameter.mZ, parameter.mParameter.mType)
         elseif parameter.mMessage == "SetAnimationID" then
             self:_setAnimationID(parameter.mParameter.mID)
         end
@@ -906,36 +912,41 @@ function EntityCustom:setHostKey(hostKey)
     end
 end
 
-function EntityCustom:setPositionReal(x, y, z)
-    self:broadcast("SetPositionReal", {mX = x, mY = y, mZ = z})
+function EntityCustom:setPosition(x, y, z)
+    self:broadcast("SetPosition", {mX = x, mY = y, mZ = z})
 end
 
-function EntityCustom:getPosition()
-    local x,y,z = ConvertToBlockIndex(self.mRealX,self.mRealY + 0.5,self.mRealZ)
+function EntityCustom:getBlockPosition()
+    local x,y,z = ConvertToBlockIndex(self.mPosition[1],self.mPosition[2] + 0.5,self.mPosition[3])
     return vector3d:new(x,y,z)
 end
 
-function EntityCustom:getPositionReal()
-    return vector3d:new(self.mRealX,self.mRealY,self.mRealZ)
+function EntityCustom:getPosition()
+    return self.mPosition
 end
 
-function EntityCustom:moveTo(x,y,z)
+function EntityCustom:moveToBlock(x,y,z)
     local real_x,real_y,real_z = ConvertToRealPosition(x,y,z)
-    self:moveToReal(real_x,real_y,real_z)
+    self:moveTo(real_x,real_y,real_z)
 end
 
-function EntityCustom:moveToReal(x,y,z)
-    self:broadcast("MoveToReal",{mX = x, mY = y, mZ = z})
+function EntityCustom:moveTo(x,y,z,type)
+    self:broadcast("MoveTo",{mX = x, mY = y, mZ = z,mType = type})
 end
 
-function EntityCustom:_setPositionReal(x, y, z)
-    self.mRealX = x
-    self.mRealY = y
-    self.mRealZ = z
+function EntityCustom:_setPosition(x, y, z)
+    self.mPosition[1] = x
+    self.mPosition[2] = y
+    self.mPosition[3] = z
 end
 
-function EntityCustom:_moveToReal(x,y,z)
-    self.mTargetRealX,self.mTargetRealY,self.mTargetRealZ = x,y,z
+function EntityCustom:_moveTo(x,y,z,type)
+    if type == "addition" then
+        self.mTargets = self.mTargets or {}
+        self.mTargets[#self.mTargets+1] = vector3d:new(x,y,z)
+    else
+        self.mTargets = {vector3d:new(x,y,z)}
+    end
 end
 
 function EntityCustom:setAnimationID(id)
@@ -1175,7 +1186,7 @@ function EntityCustomManager:_createEntityTrack(entity, track, commandQueue)
                             vector3d:new(src_position[1], src_position[2], src_position[3]) +
                             vector3d:new(track.mDirection[1], track.mDirection[2], track.mDirection[3]) * track.mSpeed *
                                 command.mTimer:total()
-                        entity:_setPositionReal(
+                        entity:_setPosition(
                             command.mNextPosition[1],
                             command.mNextPosition[2],
                             command.mNextPosition[3]
@@ -1197,7 +1208,7 @@ function EntityCustomManager:_createTrackEntity(tracks)
     for i, track in pairs(tracks) do
         local x, y, z = ConvertToBlockIndex(track.mSrcPosition[1], track.mSrcPosition[2], track.mSrcPosition[3])
         local entity = self:_createEntity(track.mEntityType, x, y, z, track.mModel, nil, track.mModelScaling, track.mModelFacing)
-        entity:_setPositionReal(track.mSrcPosition[1], track.mSrcPosition[2], track.mSrcPosition[3])
+        entity:_setPosition(track.mSrcPosition[1], track.mSrcPosition[2], track.mSrcPosition[3])
         self:_createEntityTrack(entity, track, command_queue)
         command_queue:post(
             new(
@@ -2405,7 +2416,7 @@ local gameUi = {
                     local entity = EntityCustomManager.singleton():getEntityByClientKey(client_key)
                     if command.mEntitySyncTimer:total() > 0.1 then
                         if entity.mHostKey then
-                            entity:setPositionReal(GetPlayer():getPosition()[1],GetPlayer():getPosition()[2],GetPlayer():getPosition()[3])
+                            entity:setPosition(GetPlayer():getPosition()[1],GetPlayer():getPosition()[2],GetPlayer():getPosition()[3])
                         end
                         delete(command.mEntitySyncTimer)
                         command.mEntitySyncTimer = nil
@@ -2535,7 +2546,7 @@ local gameUi = {
                     local entity = EntityCustomManager.singleton():getEntityByClientKey(client_key)
                     if command.mEntitySyncTimer:total() > 0.1 then
                         if entity.mHostKey then
-                            entity:setPositionReal(GetPlayer():getPosition()[1],GetPlayer():getPosition()[2],GetPlayer():getPosition()[3])
+                            entity:setPosition(GetPlayer():getPosition()[1],GetPlayer():getPosition()[2],GetPlayer():getPosition()[3])
                         end
                         delete(command.mEntitySyncTimer)
                         command.mEntitySyncTimer = nil
@@ -2666,7 +2677,7 @@ local gameUi = {
                     local entity = EntityCustomManager.singleton():getEntityByClientKey(client_key)
                     if command.mEntitySyncTimer:total() > 0.1 then
                         if entity.mHostKey then
-                            entity:setPositionReal(GetPlayer():getPosition()[1],GetPlayer():getPosition()[2],GetPlayer():getPosition()[3])
+                            entity:setPosition(GetPlayer():getPosition()[1],GetPlayer():getPosition()[2],GetPlayer():getPosition()[3])
                         end
                         delete(command.mEntitySyncTimer)
                         command.mEntitySyncTimer = nil
@@ -5164,7 +5175,7 @@ function Host_GameMonster:update()
         for _, player in pairs(Host_Game.singleton():getPlayerManager().mPlayers) do
             if player:getProperty():cache().mHP and player:getProperty():cache().mHP > 0 then
                 local dst = GetEntityById(player:getID()):getPosition()
-                local src = self.mEntity:getPositionReal()
+                local src = self.mEntity:getPosition()
                 local len = (dst - src):length()
                 if len <= self:getConfig().mAttackRange then
                     player:onHit(self)
@@ -5247,7 +5258,7 @@ end
 
 function Host_GameMonster:_updateMoveTarget()
     if self.mHasTarget then
-        self.mHasTarget = self.mEntity.mTargetRealX ~= nil
+        self.mHasTarget = next(self.mEntity.mTargets) ~= nil
         return
     end
     local my_block_pos = self.mEntity:getPosition()
@@ -5257,7 +5268,7 @@ function Host_GameMonster:_updateMoveTarget()
             if my_block_pos:equals(test_pos) then
                 local offset_x = math.random(-1, 1)
                 local offset_z = math.random(-1, 1)
-                self.mEntity:moveTo(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z)
+                self.mEntity:moveToBlock(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z)
                 self.mHasTarget = true
                 return
             end
@@ -5279,34 +5290,57 @@ function Host_GameMonster:_updateMoveTarget()
         end
     end
     if select then
-        local path =
-            SearchPath(
-                my_block_pos[1],
-            0,
-            my_block_pos[3],
-            select.x,
-            0,
-            select.z,
-            function(x, _, z)
-                if
-                    math.abs(x - my_block_pos[1]) < Host_Game.singleton().mScene.mTerrain.mTemplate.mAABBSize[1] and
-                        math.abs(z - my_block_pos[3]) < Host_Game.singleton().mScene.mTerrain.mTemplate.mAABBSize[3]
-                 then
-                    return (not GetBlockId(x, my_block_pos[2], z)) or (GetBlockId(x, my_block_pos[2], z) == 0)
-                else
-                    return false
+        local dst = vector3d:new(select.x,select.y,select.z)
+        local dir = (dst - my_block_pos):normalize()
+        local next_pos = my_block_pos + dir
+        local can_direct_move = true
+        while can_direct_move and ((dst - next_pos):dot(dir) > 0) do
+            local blocks = 
+            {{math.floor(next_pos[1]),next_pos[2],math.floor(next_pos[3])}
+            ,{math.floor(next_pos[1]),next_pos[2],math.ceil(next_pos[3])}
+            ,{math.ceil(next_pos[1]),next_pos[2],math.floor(next_pos[3])}
+            ,{math.ceil(next_pos[1]),next_pos[2],math.ceil(next_pos[3])}}
+            for _,block in pairs(blocks) do
+                if GetBlockId(next_x, my_block_pos[2], nexy_z) and GetBlockId(next_x, my_block_pos[2], nexy_z) ~= 0 then
+                    can_direct_move = false
+                    break
                 end
             end
-        )
-        if path and #path > 1 then
-            self.mEntity:moveTo(path[2][1], my_block_pos[2], path[2][3])
-            self.mHasTarget = true
+            next_pos = my_block_pos + dir
+        end
+
+        if can_direct_move then
+            self.mEntity:moveToBlock(select.x,select.y,select.z)
         else
-            local dir = (vector3d:new(select.x, 0, select.z) - vector3d:new(my_block_pos[1], 0, my_block_pos[3])):normalize()
-            local next_x, nexy_z = math.floor(my_block_pos[1] + dir[1] + 0.5), math.floor(my_block_pos[3] + dir[3] + 0.5)
-            if not GetBlockId(next_x, my_block_pos[2], nexy_z) or GetBlockId(next_x, my_block_pos[2], nexy_z) == 0 then
-                self.mEntity:moveTo(next_x, my_block_pos[2], nexy_z)
+            local path =
+                SearchPath(
+                    my_block_pos[1],
+                0,
+                my_block_pos[3],
+                select.x,
+                0,
+                select.z,
+                function(x, _, z)
+                    if
+                        math.abs(x - my_block_pos[1]) < Host_Game.singleton().mScene.mTerrain.mTemplate.mAABBSize[1] and
+                            math.abs(z - my_block_pos[3]) < Host_Game.singleton().mScene.mTerrain.mTemplate.mAABBSize[3]
+                    then
+                        return (not GetBlockId(x, my_block_pos[2], z)) or (GetBlockId(x, my_block_pos[2], z) == 0)
+                    else
+                        return false
+                    end
+                end
+            )
+            if path and #path > 1 then
+                self.mEntity:moveToBlock(path[2][1], my_block_pos[2], path[2][3])
                 self.mHasTarget = true
+            else
+                local dir = (vector3d:new(select.x, 0, select.z) - vector3d:new(my_block_pos[1], 0, my_block_pos[3])):normalize()
+                local next_x, nexy_z = math.floor(my_block_pos[1] + dir[1] + 0.5), math.floor(my_block_pos[3] + dir[3] + 0.5)
+                if not GetBlockId(next_x, my_block_pos[2], nexy_z) or GetBlockId(next_x, my_block_pos[2], nexy_z) == 0 then
+                    self.mEntity:moveToBlock(next_x, my_block_pos[2], nexy_z)
+                    self.mHasTarget = true
+                end
             end
         end
     else
@@ -5316,7 +5350,7 @@ function Host_GameMonster:_updateMoveTarget()
             not GetBlockId(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z) or
                 GetBlockId(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z) == 0
          then
-            self.mEntity:moveTo(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z)
+            self.mEntity:moveToBlock(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z)
             self.mHasTarget = true
         end
     end
