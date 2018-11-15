@@ -167,6 +167,7 @@ function Framework:update()
     GlobalProperty.update()
     CommandQueueManager.singleton():update()
     PlayerManager.update()
+    EntityCustomManager.singleton():update()
 end
 
 function Framework:receiveMsg(parameter)
@@ -769,17 +770,90 @@ function EntitySyncerManager:getByEntityID(entityID)
 end
 -----------------------------------------------------------------------------------------EntityCustom-----------------------------------------------------------------------------------------
 function EntityCustom:construction(parameter)
-    self.mEntity = CreateEntity(parameter.mX, parameter.mY, parameter.mZ, parameter.mModel)
+    self.mRealX,self.mRealY,self.mRealZ = ConvertToRealPosition(parameter.mX,parameter.mY,parameter.mZ)
+    self.mFacing = parameter.mModelFacing or 0
+    if parameter.mModel then
+        if parameter.mType == "EntityNPCOnline" then
+            self.mEntity = CreateNPC({
+                bx = parameter.mX,
+                by = parameter.mY,
+                bz = parameter.mZ,
+                facing = 0,
+                can_random_move = false,
+                item_id = 10062,
+                mDisableSync = true,
+                is_dummy = true
+            })
+            self.mEntity._super.SetMainAssetPath(self.mEntity,parameter.mModel)
+        else
+            self.mEntity = CreateEntity(parameter.mX, parameter.mY, parameter.mZ, parameter.mModel)
+        end
+        self.mEntity:SetFacing(parameter.mModelFacing or 0)
+        self.mEntity:SetScaling(parameter.mModelScaling or 1)
+    elseif parameter.mModelResource then
+        GetResourceModel(parameter.mModelResource,function(path)
+            if parameter.mType == "EntityNPCOnline" then
+                self.mEntity = CreateNPC({
+                    bx = parameter.mX,
+                    by = parameter.mY,
+                    bz = parameter.mZ,
+                    facing = 0,
+                    can_random_move = false,
+                    item_id = 10062,
+                    mDisableSync = true,
+                    is_dummy = true
+                })
+                self.mEntity._super.SetMainAssetPath(self.mEntity,path)
+            else
+                self.mEntity = CreateEntity(parameter.mX, parameter.mY, parameter.mZ, path)
+            end
+            self.mEntity:SetFacing(parameter.mModelFacing or 0)
+            self.mEntity:SetScaling(parameter.mModelScaling or 1)
+        end)
+    end
     self.mClientKey = parameter.mClientKey
     self:setHostKey(parameter.mHostKey)
 end
 
 function EntityCustom:destruction()
-    self.mEntity:SetDead(true)
+    if self.mEntity then
+        self.mEntity:SetDead(true)
+    end
+    self.mEntity = nil
 
     if self:_getSendKey() then
         Host.removeListener(self:_getSendKey(), self)
         Client.removeListener(self:_getSendKey(), self)
+    end
+end
+
+function EntityCustom:update()
+    if self.mTargetRealX or self.mTargetRealY or self.mTargetRealZ then
+        self.mTimer = self.mTimer or new(Timer)
+        local speed = self.mMoveSpeed or 3
+        local dir = vector3d:new(self.mTargetRealX - self.mRealX,self.mTargetRealY - self.mRealY,self.mTargetRealZ - self.mRealZ):normalize()
+        self.mFacing = math.acos(dir:dot(1,0,0))
+        if dir[3] > 0 then
+            self.mFacing = -self.mFacing
+        end
+        local next_pos = vector3d:new(self.mRealX,self.mRealY,self.mRealZ) + dir * speed * self.mTimer:delta()
+        if (next_pos - vector3d:new(self.mTargetRealX,self.mTargetRealY,self.mTargetRealZ)):length()<0.1 then
+            self:_setPositionReal(self.mTargetRealX,self.mTargetRealY,self.mTargetRealZ)
+            self:_moveToReal()
+        else
+            self:_setPositionReal(next_pos[1],next_pos[2],next_pos[3])
+        end
+    end
+    if self.mEntity then
+        if self.mFacing and self.mFacing ~= self.mEntity:GetFacing() then
+            self.mEntity:SetFacing(self.mFacing)
+        end
+        if not vector3d:new(self.mRealX,self.mRealY,self.mRealZ):equals(self.mEntity:getPosition()) then
+            self.mEntity:SetPosition(self.mRealX,self.mRealY,self.mRealZ)
+        end
+        if self.mAnimationID ~= self.mEntity:GetLastAnimId() then
+            self.mEntity:SetAnimation(self.mAnimationID)
+        end
     end
 end
 
@@ -816,6 +890,10 @@ function EntityCustom:receive(parameter)
     else
         if parameter.mMessage == "SetPositionReal" then
             self:_setPositionReal(parameter.mParameter.mX, parameter.mParameter.mY, parameter.mParameter.mZ)
+        elseif parameter.mMessage == "MoveToReal" then
+            self:_moveToReal(parameter.mParameter.mX, parameter.mParameter.mY, parameter.mParameter.mZ)
+        elseif parameter.mMessage == "SetAnimationID" then
+            self:_setAnimationID(parameter.mParameter.mID)
         end
     end
 end
@@ -832,8 +910,40 @@ function EntityCustom:setPositionReal(x, y, z)
     self:broadcast("SetPositionReal", {mX = x, mY = y, mZ = z})
 end
 
+function EntityCustom:getPosition()
+    local x,y,z = ConvertToBlockIndex(self.mRealX,self.mRealY + 0.5,self.mRealZ)
+    return vector3d:new(x,y,z)
+end
+
+function EntityCustom:getPositionReal()
+    return vector3d:new(self.mRealX,self.mRealY,self.mRealZ)
+end
+
+function EntityCustom:moveTo(x,y,z)
+    local real_x,real_y,real_z = ConvertToRealPosition(x,y,z)
+    self:moveToReal(real_x,real_y,real_z)
+end
+
+function EntityCustom:moveToReal(x,y,z)
+    self:broadcast("MoveToReal",{mX = x, mY = y, mZ = z})
+end
+
 function EntityCustom:_setPositionReal(x, y, z)
-    self.mEntity:SetPosition(x, y, z)
+    self.mRealX = x
+    self.mRealY = y
+    self.mRealZ = z
+end
+
+function EntityCustom:_moveToReal(x,y,z)
+    self.mTargetRealX,self.mTargetRealY,self.mTargetRealZ = x,y,z
+end
+
+function EntityCustom:setAnimationID(id)
+    self:broadcast("setAnimationID",{mID = id})
+end
+
+function EntityCustom:_setAnimationID(id)
+    self.mAnimationID = id
 end
 
 function EntityCustom:_getSendKey()
@@ -853,7 +963,6 @@ function EntityCustomManager:construction()
     self.mEntities = {}
     self.mNextEntityHostKey = 1
     self.mNextEntityClientKey = 1
-    self.mCommandQueue = CommandQueueManager.singleton():createQueue()
 
     Host.addListener("EntityCustomManager", self)
     Client.addListener("EntityCustomManager", self)
@@ -863,9 +972,16 @@ function EntityCustomManager:destruction()
     for _, entity in pairs(self.mEntities) do
         delete(entity)
     end
+    self.mEntities = nil
 
     Host.removeListener("EntityCustomManager", self)
     Client.removeListener("EntityCustomManager", self)
+end
+
+function EntityCustomManager:update()
+    for _,entity in pairs(self.mEntities) do
+        entity:update()
+    end
 end
 
 function EntityCustomManager:receive(parameter)
@@ -887,6 +1003,8 @@ function EntityCustomManager:receive(parameter)
                     mY = parameter.mParameter.mY,
                     mZ = parameter.mParameter.mZ,
                     mModel = parameter.mParameter.mModel,
+                    mModelScaling = parameter.mParameter.mModelScaling,
+                    mModelFacing = parameter.mParameter.mModelFacing,
                     mHostKey = host_key,
                     mPlayerID = parameter.mParameter.mPlayerID
                 }
@@ -894,11 +1012,14 @@ function EntityCustomManager:receive(parameter)
         elseif parameter.mMessage == "CreateEntity" then
             if parameter.mParameter.mPlayerID ~= GetPlayerId() then
                 self:_createEntity(
+                    parameter.mParameter.mType,
                     parameter.mParameter.mX,
                     parameter.mParameter.mY,
                     parameter.mParameter.mZ,
                     parameter.mParameter.mModel,
-                    parameter.mParameter.mHostKey
+                    parameter.mParameter.mHostKey,
+                    parameter.mParameter.mModelScaling,
+                    parameter.mParameter.mModelFacing
                 )
             end
         elseif parameter.mMessage == "DestroyEntity" then
@@ -933,14 +1054,14 @@ function EntityCustomManager:broadcast(message, parameter)
     Client.broadcast("EntityCustomManager", {mMessage = message, mParameter = parameter})
 end
 
-function EntityCustomManager:createEntity(x, y, z, model, callback)
-    local entity = self:_createEntity(x, y, z, model)
+function EntityCustomManager:createEntity(parameter,callback)
+    local entity = self:_createEntity(parameter.mType, parameter.mX, parameter.mY, parameter.mZ, parameter.mModel, nil, parameter.mModelScaling, parameter.mModelFacing)
     local client_key = entity.mClientKey
     self.mFakeEntities = self.mFakeEntities or {}
     self.mFakeEntities[client_key] = {mClientKey = client_key}
     self:requestToHost(
         "CreateEntityHost",
-        {mX = x, mY = y, mZ = z, mModel = model, mPlayerID = GetPlayerId()},
+        {mX = parameter.mX, mY = parameter.mY, mZ = parameter.mZ, mModel = parameter.mModel, mModelResource = parameter.mModelResource, mModelScaling = parameter.mModelScaling, mModelFacing = parameter.mModelFacing, mPlayerID = GetPlayerId()},
         function(parameter)
             local entity = self:getEntityByClientKey(client_key)
             if entity then
@@ -1005,14 +1126,12 @@ function EntityCustomManager:createTrackEntity(tracks)
     self:broadcast("CreateTrackEntity", {mTracks = tracks, mPlayerID = GetPlayerId()})
 end
 
-function EntityCustomManager:_createEntity(x, y, z, path, hostKey, modelScaling, modelFacing)
+function EntityCustomManager:_createEntity(type, x, y, z, path, hostKey, modelScaling, modelFacing)
     local ret =
         new(
         EntityCustom,
-        {mX = x, mY = y, mZ = z, mModel = path, mClientKey = self:_generateNextEntityClientKey(), mHostKey = hostKey}
+        {mType = type, mX = x, mY = y, mZ = z, mModel = path, mClientKey = self:_generateNextEntityClientKey(), mHostKey = hostKey, mModelScaling = modelScaling, mModelFacing = modelFacing}
     )
-    ret.mEntity:SetScaling(modelScaling or 1)
-    ret.mEntity:SetFacing(modelFacing or 0)
     self.mEntities[#self.mEntities + 1] = ret
     return ret
 end
@@ -1051,12 +1170,12 @@ function EntityCustomManager:_createEntityTrack(entity, track, commandQueue)
                         if command.mTimer:total() > track.mTime then
                             command.mState = Command.EState.Finish
                         end
-                        local src_position = track.mSrcPosition or entity.mEntity:getPosition()
+                        local src_position = track.mSrcPosition or entity:getPosition()
                         command.mNextPosition =
                             vector3d:new(src_position[1], src_position[2], src_position[3]) +
                             vector3d:new(track.mDirection[1], track.mDirection[2], track.mDirection[3]) * track.mSpeed *
                                 command.mTimer:total()
-                        entity.mEntity:SetPosition(
+                        entity:_setPositionReal(
                             command.mNextPosition[1],
                             command.mNextPosition[2],
                             command.mNextPosition[3]
@@ -1077,9 +1196,8 @@ function EntityCustomManager:_createTrackEntity(tracks)
     local command_queue = CommandQueueManager.singleton():createQueue()
     for i, track in pairs(tracks) do
         local x, y, z = ConvertToBlockIndex(track.mSrcPosition[1], track.mSrcPosition[2], track.mSrcPosition[3])
-        local entity = self:_createEntity(x, y, z, track.mModel, nil, track.mModelScaling, track.mModelFacing)
-        entity.mEntity:SetPosition(track.mSrcPosition[1], track.mSrcPosition[2], track.mSrcPosition[3])
-        entity.mEntity:SetFacing(track.mModelFacing or 0)
+        local entity = self:_createEntity(track.mEntityType, x, y, z, track.mModel, nil, track.mModelScaling, track.mModelFacing)
+        entity:_setPositionReal(track.mSrcPosition[1], track.mSrcPosition[2], track.mSrcPosition[3])
         self:_createEntityTrack(entity, track, command_queue)
         command_queue:post(
             new(
@@ -2279,7 +2397,7 @@ local gameUi = {
                 saveData.mMoney = saveData.mMoney - money
                 saveData.mHPLevel = saveData.mHPLevel + 1
                 local x,y,z = GetPlayer():GetBlockPos()
-                local client_key = EntityCustomManager.singleton():createEntity(x,y,z,"character/v5/09effect/Upgrade/Upgrade_CirqueGlowRed.x",function(hostKey)
+                local client_key = EntityCustomManager.singleton():createEntity({mX = x,mY = y,mZ = z,mModel = "character/v5/09effect/Upgrade/Upgrade_CirqueGlowRed.x"},function(hostKey)
                 end)
                 CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "UpdateLevel",mExecutingCallback = function(command)
                     command.mTimer = command.mTimer or new(Timer)
@@ -2409,7 +2527,7 @@ local gameUi = {
                 saveData.mMoney = saveData.mMoney - money
                 saveData.mAttackValueLevel = saveData.mAttackValueLevel + 1
                 local x,y,z = GetPlayer():GetBlockPos()
-                local client_key = EntityCustomManager.singleton():createEntity(x,y,z,"character/v5/09effect/Upgrade/Upgrade_CirqueGlowRed.x",function(hostKey)
+                local client_key = EntityCustomManager.singleton():createEntity({mX = x,mY = y,mZ = z,mModel = "character/v5/09effect/Upgrade/Upgrade_CirqueGlowRed.x"},function(hostKey)
                 end)
                 CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "UpdateLevel",mExecutingCallback = function(command)
                     command.mTimer = command.mTimer or new(Timer)
@@ -2540,7 +2658,7 @@ local gameUi = {
                 saveData.mMoney = saveData.mMoney - money
                 saveData.mAttackTimeLevel = saveData.mAttackTimeLevel + 1
                 local x,y,z = GetPlayer():GetBlockPos()
-                local client_key = EntityCustomManager.singleton():createEntity(x,y,z,"character/v5/09effect/Upgrade/Upgrade_CirqueGlowRed.x",function(hostKey)
+                local client_key = EntityCustomManager.singleton():createEntity({mX = x,mY = y,mZ = z,mModel = "character/v5/09effect/Upgrade/Upgrade_CirqueGlowRed.x"},function(hostKey)
                 end)
                 CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "UpdateLevel",mExecutingCallback = function(command)
                     command.mTimer = command.mTimer or new(Timer)
@@ -4989,32 +5107,22 @@ end
 Host_GameMonster.mNameIndex = 1
 function Host_GameMonster:construction(parameter)
     self.mConfigIndex = parameter.mConfigIndex
-    self.mEntity =
-        CreateNPC(
-        {
-            name = "GameMonster/" .. tostring(Host_GameMonster.mNameIndex),
-            bx = parameter.mPosition[1],
-            by = parameter.mPosition[2],
-            bz = parameter.mPosition[3],
-            facing = 0,
-            can_random_move = false,
-            item_id = 10062,
-            --is_dummy = false,
-            is_persistent = false,
-            scaling = self:getConfig().mModelScaling
-        }
-    )
     self.mID = Host_GameMonster.mNameIndex
     Host_GameMonster.mNameIndex = Host_GameMonster.mNameIndex + 1
-    if self:getConfig().mModelResource then
-        self.mEntity:setModelFromResource(self:getConfig().mModelResource)
-    elseif self:getConfig().mModel then
-    --self.mEntity:setLocalResource(self:getConfig().mModel,6)
-    end
-    self.mEntity:SetAnimation(1)
+    local client_key = EntityCustomManager.singleton():createEntity(
+        {mType = "EntityNPCOnline"
+        ,mX = parameter.mPosition[1]
+        ,mY = parameter.mPosition[2]
+        ,mZ = parameter.mPosition[3]
+        ,mModel = self:getConfig().mModel
+        ,mModelResource = self:getConfig().mModelResource
+        ,mModelScaling = self:getConfig().mModelScaling},function(hostKey)
+            self.mProperty:safeWrite("mEntityHostKey", hostKey)
+    end)
+    self.mEntity = EntityCustomManager.singleton():getEntityByClientKey(client_key)
+    self.mEntity:setAnimationID(1)
     self.mProperty = new(GameMonsterProperty, {mID = self.mID})
 
-    self.mProperty:safeWrite("mEntityID", self.mEntity.entityId)
     self.mProperty:safeWrite("mConfigIndex", parameter.mConfigIndex)
     self.mProperty:safeWrite("mLevel", parameter.mLevel)
     self.mProperty:safeWrite("mInitHP", GameCompute.computeMonsterHP(self.mProperty:cache().mLevel))
@@ -5024,28 +5132,21 @@ function Host_GameMonster:construction(parameter)
 end
 
 function Host_GameMonster:destruction()
-    self.mProperty:safeWrite("mEntityID")
+    self.mProperty:safeWrite("mEntityHostKey")
     self.mProperty:safeWrite("mConfigIndex")
     self.mProperty:safeWrite("mLevel")
     self.mProperty:safeWrite("mInitHP")
     self.mProperty:safeWrite("mHP")
     delete(self.mProperty)
     if self.mEntity then
-        self.mEntity:SetDead(true)
+        EntityCustomManager.singleton():destroyEntity(self.mEntity.mClientKey)
     end
     Host.removeListener(self:_getSendKey(), self)
 end
 
 function Host_GameMonster:update()
     if not self.mEntity then
-        return
-    end
-    if self.mEntity.entityId ~= self.mProperty:cache().mEntityID then
-        self.mProperty:safeWrite("mEntityID", self.mEntity.entityId)
-    end
-    local x, y, z = self.mEntity:GetBlockPos()
-    if Host_Game.singleton().mScene and y < Host_Game.singleton().mScene.mTerrain.mHomePosition[2] + 2 then
-        SetEntityBlockPos(self.mEntity.entityId, x, Host_Game.singleton().mScene.mTerrain.mHomePosition[2] + 2, z)
+        return 
     end
     if
         self.mAttackTimer and
@@ -5062,10 +5163,10 @@ function Host_GameMonster:update()
         local attacked
         for _, player in pairs(Host_Game.singleton():getPlayerManager().mPlayers) do
             if player:getProperty():cache().mHP and player:getProperty():cache().mHP > 0 then
-                local dst_x, dst_y, dst_z = GetEntityById(player:getID()):GetBlockPos()
-                local x, y, z = self.mEntity:GetBlockPos()
-                local dst = math.pow((dst_x - x), 2) + math.pow((dst_y - y), 2) + math.pow((dst_z - z), 2)
-                if dst <= self:getConfig().mAttackRange then
+                local dst = GetEntityById(player:getID()):getPosition()
+                local src = self.mEntity:getPositionReal()
+                local len = (dst - src):length()
+                if len <= self:getConfig().mAttackRange then
                     player:onHit(self)
                     attacked = true
                 end
@@ -5126,7 +5227,7 @@ end
 function Host_GameMonster:_checkDead(lastHitPlayerID)
     if self.mProperty:cache().mHP <= 0 and self.mEntity then
         Host_Game.singleton():getEffectManager():monsterDead(self)
-        self.mEntity:SetDead(true)
+        EntityCustomManager.singleton():destroyEntity(self.mEntity.mClientKey)
         self.mEntity = nil
         if self.mDamaged then
             local total_money = monLootGold(self.mProperty:cache().mLevel)
@@ -5146,17 +5247,17 @@ end
 
 function Host_GameMonster:_updateMoveTarget()
     if self.mHasTarget then
-        self.mHasTarget = self.mEntity:HasTarget()
+        self.mHasTarget = self.mEntity.mTargetRealX ~= nil
         return
     end
-    local my_x, my_y, my_z = self.mEntity:GetBlockPos()
+    local my_block_pos = self.mEntity:getPosition()
     for _, monster in pairs(Host_Game.singleton():getMonsterManager().mMonsters) do
         if monster ~= self and monster:getEntity() then
-            local test_x, test_y, test_z = monster:getEntity():GetBlockPos()
-            if test_x == my_x and test_y == my_y and test_z == my_z then
+            local test_pos = monster:getEntity():getPosition()
+            if my_block_pos:equals(test_pos) then
                 local offset_x = math.random(-1, 1)
                 local offset_z = math.random(-1, 1)
-                self.mEntity:MoveTo(my_x + offset_x, my_y + 1, my_z + offset_z)
+                self.mEntity:moveTo(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z)
                 self.mHasTarget = true
                 return
             end
@@ -5166,12 +5267,13 @@ function Host_GameMonster:_updateMoveTarget()
     for _, player in pairs(Host_Game.singleton():getPlayerManager().mPlayers) do
         if player:getProperty():cache().mHP and player:getProperty():cache().mHP > 0 then
             local dst_x, dst_y, dst_z = GetEntityById(player:getID()):GetBlockPos()
-            local dst = math.pow((dst_x - my_x), 2) + math.pow((dst_y - my_y), 2) + math.pow((dst_z - my_z), 2)
+            local dst = vector3d:new(dst_x, dst_y, dst_z)
+            local len = dst:length()
             if not select then
-                select = {x = dst_x, y = my_y, z = dst_z, len = dst}
+                select = {x = dst_x, y = my_block_pos[2], z = dst_z, length = len}
             else
-                if select.len > dst then
-                    select = {x = dst_x, y = my_y, z = dst_z, len = dst}
+                if select.length > len then
+                    select = {x = dst_x, y = my_block_pos[2], z = dst_z, length = len}
                 end
             end
         end
@@ -5179,31 +5281,31 @@ function Host_GameMonster:_updateMoveTarget()
     if select then
         local path =
             SearchPath(
-            my_x,
+                my_block_pos[1],
             0,
-            my_z,
+            my_block_pos[3],
             select.x,
             0,
             select.z,
             function(x, _, z)
                 if
-                    math.abs(x - my_x) < Host_Game.singleton().mScene.mTerrain.mTemplate.mAABBSize[1] and
-                        math.abs(z - my_z) < Host_Game.singleton().mScene.mTerrain.mTemplate.mAABBSize[3]
+                    math.abs(x - my_block_pos[1]) < Host_Game.singleton().mScene.mTerrain.mTemplate.mAABBSize[1] and
+                        math.abs(z - my_block_pos[3]) < Host_Game.singleton().mScene.mTerrain.mTemplate.mAABBSize[3]
                  then
-                    return (not GetBlockId(x, my_y + 1, z)) or (GetBlockId(x, my_y + 1, z) == 0)
+                    return (not GetBlockId(x, my_block_pos[2], z)) or (GetBlockId(x, my_block_pos[2], z) == 0)
                 else
                     return false
                 end
             end
         )
         if path and #path > 1 then
-            self.mEntity:MoveTo(path[2][1], my_y + 1, path[2][3])
+            self.mEntity:moveTo(path[2][1], my_block_pos[2], path[2][3])
             self.mHasTarget = true
         else
-            local dir = (vector3d:new(select.x, 0, select.z) - vector3d:new(my_x, 0, my_z)):normalize()
-            local next_x, nexy_z = math.floor(my_x + dir[1] + 0.5), math.floor(my_z + dir[3] + 0.5)
-            if not GetBlockId(next_x, my_y + 1, nexy_z) or GetBlockId(next_x, my_y + 1, nexy_z) == 0 then
-                self.mEntity:MoveTo(next_x, my_y + 1, nexy_z)
+            local dir = (vector3d:new(select.x, 0, select.z) - vector3d:new(my_block_pos[1], 0, my_block_pos[3])):normalize()
+            local next_x, nexy_z = math.floor(my_block_pos[1] + dir[1] + 0.5), math.floor(my_block_pos[3] + dir[3] + 0.5)
+            if not GetBlockId(next_x, my_block_pos[2], nexy_z) or GetBlockId(next_x, my_block_pos[2], nexy_z) == 0 then
+                self.mEntity:moveTo(next_x, my_block_pos[2], nexy_z)
                 self.mHasTarget = true
             end
         end
@@ -5211,10 +5313,10 @@ function Host_GameMonster:_updateMoveTarget()
         local offset_x = math.random(-1, 1)
         local offset_z = math.random(-1, 1)
         if
-            not GetBlockId(my_x + offset_x, my_y + 1, my_z + offset_z) or
-                GetBlockId(my_x + offset_x, my_y + 1, my_z + offset_z) == 0
+            not GetBlockId(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z) or
+                GetBlockId(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z) == 0
          then
-            self.mEntity:MoveTo(my_x + offset_x, my_y + 1, my_z + offset_z)
+            self.mEntity:moveTo(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z)
             self.mHasTarget = true
         end
     end
@@ -5713,7 +5815,7 @@ end
 function Client_GameMonsterManager:onHit(weapon, result)
     if result.entity then
         for _, monster in pairs(self.mMonsters) do
-            if result.entity.entityId == monster:getProperty():cache().mEntityID then
+            if EntityCustomManager.singleton():getEntityByHostKey(monster:getProperty():cache().mEntityHostKey) and result.entity.entityId == EntityCustomManager.singleton():getEntityByHostKey(monster:getProperty():cache().mEntityHostKey).mEntity.entityId then
                 monster:onHit(weapon)
                 break
             end
@@ -6197,7 +6299,7 @@ function Client_GameMonster:construction(parameter)
     self.mProperty = new(GameMonsterProperty, {mID = self.mID})
 
     self.mProperty:addPropertyListener(
-        "mEntityID",
+        "mEntityHostKey",
         self,
         function(_, value)
         end
@@ -6226,7 +6328,7 @@ function Client_GameMonster:construction(parameter)
 end
 
 function Client_GameMonster:destruction()
-    self.mProperty:removePropertyListener("mEntityID", self)
+    self.mProperty:removePropertyListener("mEntityHostKey", self)
     self.mProperty:removePropertyListener("mLevel", self)
     self.mProperty:removePropertyListener("mHP", self)
     self.mProperty:removePropertyListener("mConfigIndex", self)
@@ -6239,16 +6341,6 @@ function Client_GameMonster:destruction()
 end
 
 function Client_GameMonster:update()
-    if
-        self.mProperty:cache().mConfigIndex and self:getConfig().mModel and self.mProperty:cache().mEntityID and
-            GetEntityById(self.mProperty:cache().mEntityID)
-     then
-        GetEntityById(self.mProperty:cache().mEntityID)._super.SetMainAssetPath(
-            GetEntityById(self.mProperty:cache().mEntityID),
-            self:getConfig().mModel,
-            6
-        )
-    end
 end
 
 function Client_GameMonster:sendToHost(message, parameter)
@@ -6278,17 +6370,17 @@ function Client_GameMonster:onHit(weapon)
         Client_Game.singleton():getPlayerManager():getPlayerByID():getProperty():cache().mAttackValueLevel
     )
     if
-        GetEntityById(self.mProperty:cache().mEntityID) and
-            GetEntityById(self.mProperty:cache().mEntityID):GetInnerObject() and
+    EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey) and EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity and
+    EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity:GetInnerObject() and
             GetEntityHeadOnObject(
-                self.mProperty:cache().mEntityID,
-                "OnHit/" .. tostring(self.mProperty:cache().mEntityID)
+                EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId,
+                "OnHit/" .. tostring(EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId)
             )
      then
         local ui =
             GetEntityHeadOnObject(
-            self.mProperty:cache().mEntityID,
-            "OnHit/" .. tostring(self.mProperty:cache().mEntityID)
+                EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId,
+            "OnHit/" .. tostring(EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId)
         ):createChild(
             {
                 ui_name = "background",
@@ -6333,18 +6425,18 @@ end
 
 function Client_GameMonster:_updateBloodUI()
     if
-        GetEntityById(self.mProperty:cache().mEntityID) and
-            GetEntityById(self.mProperty:cache().mEntityID):GetInnerObject() and
+    EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey) and EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity and
+    EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity:GetInnerObject() and
             GetEntityHeadOnObject(
-                self.mProperty:cache().mEntityID,
-                "Blood/" .. tostring(self.mProperty:cache().mEntityID)
+                EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId,
+                "Blood/" .. tostring(EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId)
             )
      then
         if not self.mBloodUI then
             self.mBloodUI =
                 GetEntityHeadOnObject(
-                self.mProperty:cache().mEntityID,
-                "Blood/" .. tostring(self.mProperty:cache().mEntityID)
+                    EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId,
+                "Blood/" .. tostring(EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId)
             ):createChild(
                 {
                     ui_name = "background",
@@ -6362,8 +6454,8 @@ function Client_GameMonster:_updateBloodUI()
         if not self.mNameUI then
             self.mNameUI =
                 GetEntityHeadOnObject(
-                self.mProperty:cache().mEntityID,
-                "Name/" .. tostring(self.mProperty:cache().mEntityID)
+                    EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId,
+                "Name/" .. tostring(EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId)
             ):createChild(
                 {
                     ui_name = "background",
