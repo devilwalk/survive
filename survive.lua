@@ -119,7 +119,7 @@ local function restoreBlock(x, y, z)
         SetBlock(x, y, z, gOriginBlockIDs[key])
     end
 end
-local SavedData = {mMoney = 10000000000}
+local SavedData = {mMoney = 10000000000,mAttackTimeLevel = 100,mAttackValueLevel = 999,mHPLevel = 999}
 local function getSavedData()
     return GetSavedData() or SavedData
 end
@@ -1927,7 +1927,7 @@ GameConfig.mMonsterLibrary = {
 GameConfig.mTerrainLibrary = {
     {mTemplateResource = {hash = "FjSzbfpww1S3GAl4lPEniRIsL7nI", pid = "18337", ext = "bmax"}},
     {mTemplateResource = {hash = "FiR4Dr3SzSUP1lSyYqwea3kY0Gt_", pid = "18348", ext = "bmax"}},
-    {mTemplateResource = {hash="Frl94LvKRoNIWN4uyDV6nJ3jMhp7",pid="18796",ext="bmax",}}
+    {mTemplateResource = {hash="Fq8ugoeIBGA5yO-Urgh-AGThSBf_",pid="18829",ext="bmax",}}
 }
 GameConfig.mSafeHouse = {mTemplateResource = {hash = "FpHOk_oMV1lBqaTtMLjqAtqyzJp4", pid = "5453", ext = "bmax"}}
 GameConfig.mMatch = {
@@ -2408,6 +2408,25 @@ local gameUi = {
             if saveData.mMoney >= money then
                 saveData.mMoney = saveData.mMoney - money
                 saveData.mAttackValueLevel = saveData.mAttackValueLevel + 1
+                local x,y,z = GetPlayer():GetBlockPos()
+                local client_key = EntityCustomManager.singleton():createEntity(x,y,z,"character/v5/09effect/Upgrade/Upgrade_CirqueGlowRed.x",function(hostKey)
+                end)
+                CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "UpdateLevel",mExecutingCallback = function(command)
+                    command.mTimer = command.mTimer or new(Timer)
+                    command.mEntitySyncTimer = command.mEntitySyncTimer or new(Timer)
+                    local entity = EntityCustomManager.singleton():getEntityByClientKey(client_key)
+                    if command.mEntitySyncTimer:total() > 0.1 then
+                        if entity.mHostKey then
+                            entity:setPositionReal(GetPlayer():getPosition()[1],GetPlayer():getPosition()[2],GetPlayer():getPosition()[3])
+                        end
+                        delete(command.mEntitySyncTimer)
+                        command.mEntitySyncTimer = nil
+                    end
+                    if command.mTimer:total() > 0.5 then
+                        EntityCustomManager.singleton():destroyEntity(client_key)
+                        command.mState = Command.EState.Finish
+                    end
+                end}))
             end
         end,
         font_bold = true,
@@ -2520,6 +2539,25 @@ local gameUi = {
             if saveData.mMoney >= money then
                 saveData.mMoney = saveData.mMoney - money
                 saveData.mAttackTimeLevel = saveData.mAttackTimeLevel + 1
+                local x,y,z = GetPlayer():GetBlockPos()
+                local client_key = EntityCustomManager.singleton():createEntity(x,y,z,"character/v5/09effect/Upgrade/Upgrade_CirqueGlowRed.x",function(hostKey)
+                end)
+                CommandQueueManager.singleton():post(new(Command_Callback,{mDebug = "UpdateLevel",mExecutingCallback = function(command)
+                    command.mTimer = command.mTimer or new(Timer)
+                    command.mEntitySyncTimer = command.mEntitySyncTimer or new(Timer)
+                    local entity = EntityCustomManager.singleton():getEntityByClientKey(client_key)
+                    if command.mEntitySyncTimer:total() > 0.1 then
+                        if entity.mHostKey then
+                            entity:setPositionReal(GetPlayer():getPosition()[1],GetPlayer():getPosition()[2],GetPlayer():getPosition()[3])
+                        end
+                        delete(command.mEntitySyncTimer)
+                        command.mEntitySyncTimer = nil
+                    end
+                    if command.mTimer:total() > 0.5 then
+                        EntityCustomManager.singleton():destroyEntity(client_key)
+                        command.mState = Command.EState.Finish
+                    end
+                end}))
             end
         end,
         font_bold = true,
@@ -4821,7 +4859,6 @@ function Host_GamePlayer:construction(parameter)
     self.mConfigIndex = parameter.mConfigIndex
 
     self.mProperty:safeWrite("mConfigIndex", self.mConfigIndex)
-    self.mProperty:safeWrite("mKill", 0)
     self.mProperty:addPropertyListener(
         "mHPLevel",
         self,
@@ -4829,6 +4866,12 @@ function Host_GamePlayer:construction(parameter)
             if value then
                 self.mProperty:safeWrite("mHP", GameCompute.computePlayerHP(value))
             end
+        end
+    )
+    self.mProperty:addPropertyListener(
+        "mKill",
+        self,
+        function(_, value)
         end
     )
     self.mProperty:addPropertyListener(
@@ -5097,7 +5140,7 @@ function Host_GameMonster:_checkDead(lastHitPlayerID)
             self.mDamaged = nil
         end
         local player = Host_Game.singleton():getPlayerManager():getPlayerByID(lastHitPlayerID)
-        player:getProperty():safeWrite("mKill", player:getProperty():cache().mKill + 1)
+        player:getProperty():safeWrite("mKill", player:getProperty():cache().mKill or 0 + 1)
     end
 end
 
@@ -5733,10 +5776,12 @@ function Client_GamePlayer:construction(parameter)
         saved_data.mAttackValueLevel = saved_data.mAttackValueLevel or 1
         saved_data.mAttackTimeLevel = saved_data.mAttackTimeLevel or 1
         saved_data.mMoney = saved_data.mMoney or 0
+        saved_data.mKill = saved_data.mKill or 0
         self.mProperty:safeWrite("mHPLevel", saved_data.mHPLevel)
         self.mProperty:safeWrite("mAttackValueLevel", saved_data.mAttackValueLevel)
         self.mProperty:safeWrite("mAttackTimeLevel", saved_data.mAttackTimeLevel)
         self.mProperty:safeWrite("mMoney", saved_data.mMoney)
+        self.mProperty:safeWrite("mKill", saved_data.mKill)
 
         self:_equpGun()
         -- 显示枪里子弹数量
@@ -5817,6 +5862,25 @@ function Client_GamePlayer:construction(parameter)
                 end
             end
         )
+        self.mProperty:addPropertyListener(
+            "mAttackTimeLevel",
+            self,
+            function()
+                if WeaponSystem.get(1) and self.mProperty:cache().mAttackTimeLevel then
+                    WeaponSystem.get(1):setProperty(
+                        "atk_speed",
+                        GameCompute.computePlayerAttackTime(self.mProperty:cache().mAttackTimeLevel) * 1000
+                    )
+                end
+            end
+        )
+    else
+        self.mProperty:addPropertyListener(
+            "mAttackTimeLevel",
+            self,
+            function()
+            end
+        )
     end
     self.mProperty:addPropertyListener(
         "mHPLevel",
@@ -5828,18 +5892,6 @@ function Client_GamePlayer:construction(parameter)
         "mAttackValueLevel",
         self,
         function()
-        end
-    )
-    self.mProperty:addPropertyListener(
-        "mAttackTimeLevel",
-        self,
-        function()
-            if WeaponSystem.get(1) and self.mProperty:cache().mAttackTimeLevel then
-                WeaponSystem.get(1):setProperty(
-                    "atk_speed",
-                    GameCompute.computePlayerAttackTime(self.mProperty:cache().mAttackTimeLevel) * 1000
-                )
-            end
         end
     )
     self.mProperty:addPropertyListener(
@@ -5906,6 +5958,11 @@ function Client_GamePlayer:update()
         if self.mProperty:cache().mMoney then
             if saved_data.mMoney ~= self.mProperty:cache().mMoney then
                 self.mProperty:safeWrite("mMoney", saved_data.mMoney)
+            end
+        end
+        if self.mProperty:cache().mKill then
+            if saved_data.mKill ~= self.mProperty:cache().mKill then
+                saved_data.mKill = self.mProperty:cache().mKill
             end
         end
         if WeaponSystem.get(1) and WeaponSystem.get(1):getAmmoCount() == 0 then
