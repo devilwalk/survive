@@ -5329,7 +5329,7 @@ function Host_GameMonster:_checkDead(lastHitPlayerID)
             self.mDamaged = nil
         end
         local player = Host_Game.singleton():getPlayerManager():getPlayerByID(lastHitPlayerID)
-        player:getProperty():safeWrite("mKill", player:getProperty():cache().mKill or 0 + 1)
+        player:getProperty():safeWrite("mKill", (player:getProperty():cache().mKill or 0) + 1)
     end
 end
 
