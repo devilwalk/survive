@@ -5048,6 +5048,7 @@ end
 
 function Host_GamePlayer:destruction()
     self.mProperty:removePropertyListener("mHPLevel", self)
+    self.mProperty:removePropertyListener("mKill", self)
     self.mProperty:removePropertyListener("mAttackValueLevel", self)
     self.mProperty:removePropertyListener("mAttackTimeLevel", self)
     self.mProperty:removePropertyListener("mMoney", self)
