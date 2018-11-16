@@ -4638,8 +4638,6 @@ function Host_Game:_nextMatch()
 end
 
 function Host_Game:_startMatch(callback)
-    self.mProperty:safeWrite("mLevel", self.mProperty:cache().mSwitchLevel or (self.mProperty:cache().mLevel + 1))
-    self.mProperty:safeWrite("mSwitchLevel")
     local scene = {mLevel = self.mProperty:cache().mLevel}
     local terrains = {}
     for _, terrain in pairs(GameConfig.mTerrainLibrary) do
