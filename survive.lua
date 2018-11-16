@@ -172,8 +172,8 @@ end
 
 function Framework:receiveMsg(parameter)
     if parameter.mKey ~= "GlobalProperty" then
-        echo("devilwalk", "receiveMsg:parameter:")
-        echo("devilwalk", parameter)
+        --echo("devilwalk", "receiveMsg:parameter:")
+        --echo("devilwalk", parameter)
     end
     if parameter.mTo then
         if parameter.mTo == "Host" then
@@ -773,6 +773,7 @@ function EntityCustom:construction(parameter)
     local real_x,real_y,real_z = ConvertToRealPosition(parameter.mX,parameter.mY,parameter.mZ)
     self.mPosition = vector3d:new(real_x,real_y,real_z)
     self.mFacing = parameter.mModelFacing or 0
+    self.mTargets = {}
     if parameter.mModel then
         if parameter.mType == "EntityNPCOnline" then
             self.mEntity = CreateNPC({
@@ -836,9 +837,23 @@ function EntityCustom:update()
         if not self.mMoveDirection then
             self.mMoveDirection = (target - self.mPosition):normalize()
             self.mFacing = math.acos(self.mMoveDirection:dot(1,0,0))
-        end
-        if self.mMoveDirection[3] > 0 then
-            self.mFacing = -self.mFacing
+            while self.mFacing > 3.14 do
+                if self.mFacing > 3.15 then
+                    self.mFacing = self.mFacing - 3.14
+                else
+                    self.mFacing = 3.14
+                end
+            end
+            while self.mFacing < -3.14 do
+                if self.mFacing < -3.15 then
+                    self.mFacing = self.mFacing + 3.14
+                else
+                    self.mFacing = -3.14
+                end
+            end
+            if self.mMoveDirection[3] > 0 then
+                self.mFacing = -self.mFacing
+            end
         end
         local next_pos = self.mPosition + self.mMoveDirection * speed * self.mTimer:delta()
         if (target - next_pos):dot(self.mMoveDirection) <= 0 then
@@ -942,7 +957,6 @@ end
 
 function EntityCustom:_moveTo(x,y,z,type)
     if type == "addition" then
-        self.mTargets = self.mTargets or {}
         self.mTargets[#self.mTargets+1] = vector3d:new(x,y,z)
     else
         self.mTargets = {vector3d:new(x,y,z)}
@@ -1010,6 +1024,7 @@ function EntityCustomManager:receive(parameter)
             self:broadcast(
                 "CreateEntity",
                 {
+                    mType = parameter.mParameter.mType,
                     mX = parameter.mParameter.mX,
                     mY = parameter.mParameter.mY,
                     mZ = parameter.mParameter.mZ,
@@ -1072,7 +1087,7 @@ function EntityCustomManager:createEntity(parameter,callback)
     self.mFakeEntities[client_key] = {mClientKey = client_key}
     self:requestToHost(
         "CreateEntityHost",
-        {mX = parameter.mX, mY = parameter.mY, mZ = parameter.mZ, mModel = parameter.mModel, mModelResource = parameter.mModelResource, mModelScaling = parameter.mModelScaling, mModelFacing = parameter.mModelFacing, mPlayerID = GetPlayerId()},
+        {mType = parameter.mType, mX = parameter.mX, mY = parameter.mY, mZ = parameter.mZ, mModel = parameter.mModel, mModelResource = parameter.mModelResource, mModelScaling = parameter.mModelScaling, mModelFacing = parameter.mModelFacing, mPlayerID = GetPlayerId()},
         function(parameter)
             local entity = self:getEntityByClientKey(client_key)
             if entity then
@@ -1090,16 +1105,22 @@ function EntityCustomManager:createEntity(parameter,callback)
 end
 
 function EntityCustomManager:getEntityByHostKey(hostKey)
+    if not hostKey then
+        return
+    end
     for _, entity in pairs(self.mEntities) do
-        if entity.mHostKey == hostKey then
+        if entity.mHostKey and entity.mHostKey == hostKey then
             return entity
         end
     end
 end
 
 function EntityCustomManager:getEntityByClientKey(clientKey)
+    if not clientKey then
+        return
+    end
     for _, entity in pairs(self.mEntities) do
-        if entity.mClientKey == clientKey then
+        if entity.mClientKey and entity.mClientKey == clientKey then
             return entity
         end
     end
@@ -4422,12 +4443,13 @@ function Host_Game:_nextMatch()
                 mDebug = "Host_Game:_nextMatch/Prepare",
                 mExecutingCallback = function(command)
                     command.mTimer = command.mTimer or new(Timer)
-                    local left_time = math.floor(GameConfig.mPrepareTime - command.mTimer:total())
-                    if left_time ~= self.mProperty:cache().mSafeHouseLeftTime then
-                        self.mProperty:safeWrite("mSafeHouseLeftTime", left_time)
-                    end
                     if command.mTimer:total() >= GameConfig.mPrepareTime then
                         command.mState = Command.EState.Finish
+                    else
+                        local left_time = math.floor(GameConfig.mPrepareTime - command.mTimer:total())
+                        if left_time ~= self.mProperty:cache().mSafeHouseLeftTime then
+                            self.mProperty:safeWrite("mSafeHouseLeftTime", left_time)
+                        end
                     end
                 end
             }
@@ -5261,10 +5283,10 @@ function Host_GameMonster:_updateMoveTarget()
         self.mHasTarget = next(self.mEntity.mTargets) ~= nil
         return
     end
-    local my_block_pos = self.mEntity:getPosition()
+    local my_block_pos = self.mEntity:getBlockPosition()
     for _, monster in pairs(Host_Game.singleton():getMonsterManager().mMonsters) do
         if monster ~= self and monster:getEntity() then
-            local test_pos = monster:getEntity():getPosition()
+            local test_pos = monster:getEntity():getBlockPosition()
             if my_block_pos:equals(test_pos) then
                 local offset_x = math.random(-1, 1)
                 local offset_z = math.random(-1, 1)
@@ -5290,27 +5312,24 @@ function Host_GameMonster:_updateMoveTarget()
         end
     end
     if select then
-        local dst = vector3d:new(select.x,select.y,select.z)
-        local dir = (dst - my_block_pos):normalize()
-        local next_pos = my_block_pos + dir
+        local real_x,real_y,real_z = ConvertToRealPosition(select.x,select.y,select.z)
+        local dst = vector3d:new(real_x,real_y,real_z)
+        local dir = (dst - self.mEntity:getPosition()):normalize()
+        local next_pos = self.mEntity:getPosition()
         local can_direct_move = true
         while can_direct_move and ((dst - next_pos):dot(dir) > 0) do
-            local blocks = 
-            {{math.floor(next_pos[1]),next_pos[2],math.floor(next_pos[3])}
-            ,{math.floor(next_pos[1]),next_pos[2],math.ceil(next_pos[3])}
-            ,{math.ceil(next_pos[1]),next_pos[2],math.floor(next_pos[3])}
-            ,{math.ceil(next_pos[1]),next_pos[2],math.ceil(next_pos[3])}}
-            for _,block in pairs(blocks) do
-                if GetBlockId(next_x, my_block_pos[2], nexy_z) and GetBlockId(next_x, my_block_pos[2], nexy_z) ~= 0 then
-                    can_direct_move = false
-                    break
-                end
+            local block_x,block_y,block_z = ConvertToBlockIndex(next_pos[1],next_pos[2]+0.5,next_pos[3])
+            if GetBlockId(block_x,block_y,block_z) and GetBlockId(block_x,block_y,block_z) ~= 0 then
+                can_direct_move = false
+                break
             end
-            next_pos = my_block_pos + dir
+            next_pos = next_pos + dir
         end
 
         if can_direct_move then
-            self.mEntity:moveToBlock(select.x,select.y,select.z)
+            next_pos = self.mEntity:getPosition() + dir
+            self.mEntity:moveTo(next_pos[1],next_pos[2],next_pos[3])
+            self.mHasTarget = true
         else
             local path =
                 SearchPath(
@@ -5906,6 +5925,8 @@ end
 function Client_GamePlayer:construction(parameter)
     self.mPlayerID = parameter.mPlayerID
     self.mProperty = new(GamePlayerProperty, {mPlayerID = self.mPlayerID})
+    self.mHeadOnUIs = {}
+    self.mNextHeadOnUIID = 1
     if self.mPlayerID == GetPlayerId() then
         local saved_data = getSavedData()
         saved_data.mHPLevel = saved_data.mHPLevel or 1
@@ -6064,7 +6085,12 @@ function Client_GamePlayer:destruction()
     delete(self.mProperty)
     if self.mBloodUI then
         self.mBloodUI:destroy()
+        self.mBloodUI = nil
     end
+    for _,ui in pairs(self.mHeadOnUIs) do
+        ui:destroy()
+    end
+    self.mHeadOnUIs = nil
     if self.mPlayerID == GetPlayerId() then
         uninitUi()
         InputManager.removeListener(self)
@@ -6142,6 +6168,8 @@ function Client_GamePlayer:receive(parameter)
                         text = "+￥" .. tostring(processFloat(parameter.mParameter.mMoney, 2))
                     }
                 )
+                local ui_id = self:_generateNextHeadOnUIID()
+                self.mHeadOnUIs[ui_id] = ui
                 CommandQueueManager.singleton():post(
                     new(
                         Command_Callback,
@@ -6151,9 +6179,11 @@ function Client_GamePlayer:receive(parameter)
                                 command.mTimer = command.mTimer or new(Timer)
                                 if command.mTimer:total() > 0.8 then
                                     ui:destroy()
+                                    self.mHeadOnUIs[ui_id] = nil
                                     command.mState = Command.EState.Finish
+                                else
+                                    ui.y = -80 - 150 * command.mTimer:total()
                                 end
-                                ui.y = -80 - 150 * command.mTimer:total()
                             end
                         }
                     )
@@ -6177,6 +6207,8 @@ function Client_GamePlayer:receive(parameter)
                         text = "-" .. tostring(parameter.mParameter.mValue)
                     }
                 )
+                local ui_id = self:_generateNextHeadOnUIID()
+                self.mHeadOnUIs[ui_id] = ui
                 CommandQueueManager.singleton():post(
                     new(
                         Command_Callback,
@@ -6186,9 +6218,11 @@ function Client_GamePlayer:receive(parameter)
                                 command.mTimer = command.mTimer or new(Timer)
                                 if command.mTimer:total() > 0.8 then
                                     ui:destroy()
+                                    self.mHeadOnUIs[ui_id] = nil
                                     command.mState = Command.EState.Finish
+                                else
+                                    ui.y = -60 - 150 * command.mTimer:total()
                                 end
-                                ui.y = -60 - 150 * command.mTimer:total()
                             end
                         }
                     )
@@ -6326,16 +6360,25 @@ function Client_GamePlayer:_updateCameraMode()
         end
     end
 end
+
+function Client_GamePlayer:_generateNextHeadOnUIID()
+    local ret = self.mNextHeadOnUIID
+    self.mNextHeadOnUIID = self.mNextHeadOnUIID + 1
+    return ret
+end
 -----------------------------------------------------------------------------------------Client_GameMonster-----------------------------------------------------------------------------------
 function Client_GameMonster:construction(parameter)
     self.mCommandQueue = CommandQueueManager.singleton():createQueue()
     self.mID = parameter.mID
     self.mProperty = new(GameMonsterProperty, {mID = self.mID})
+    self.mHeadOnUIs = {}
+    self.mNextHeadOnUIID = 1
 
     self.mProperty:addPropertyListener(
         "mEntityHostKey",
         self,
         function(_, value)
+            self:_updateBloodUI()
         end
     )
     self.mProperty:addPropertyListener(
@@ -6368,7 +6411,16 @@ function Client_GameMonster:destruction()
     self.mProperty:removePropertyListener("mConfigIndex", self)
     if self.mBloodUI then
         self.mBloodUI:destroy()
+        self.mBloodUI = nil
     end
+    if self.mNameUI then
+        self.mNameUI:destroy()
+        self.mNameUI = nil
+    end
+    for _,ui in pairs(self.mHeadOnUIs) do
+        ui:destroy()
+    end
+    self.mHeadOnUIs = nil
     delete(self.mProperty)
     CommandQueueManager.singleton():destroyQueue(self.mCommandQueue)
     Client.removeListener(self:_getSendKey(), self)
@@ -6431,6 +6483,8 @@ function Client_GameMonster:onHit(weapon)
                 text = "-" .. tostring(hit_value)
             }
         )
+        local ui_id = self:_generateNextHeadOnUIID()
+        self.mHeadOnUIs[ui_id] = ui
         CommandQueueManager.singleton():post(
             new(
                 Command_Callback,
@@ -6440,9 +6494,11 @@ function Client_GameMonster:onHit(weapon)
                         command.mTimer = command.mTimer or new(Timer)
                         if command.mTimer:total() > 0.5 then
                             ui:destroy()
+                            self.mHeadOnUIs[ui_id] = nil
                             command.mState = Command.EState.Finish
+                        else
+                            ui.y = -100 - 150 * command.mTimer:total()
                         end
-                        ui.y = -100 - 150 * command.mTimer:total()
                     end
                 }
             )
@@ -6458,53 +6514,57 @@ function Client_GameMonster:_getSendKey()
 end
 
 function Client_GameMonster:_updateBloodUI()
-    if
-    EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey) and EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity and
-    EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity:GetInnerObject() and
-            GetEntityHeadOnObject(
-                EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId,
-                "Blood/" .. tostring(EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId)
-            )
-     then
-        if not self.mBloodUI then
-            self.mBloodUI =
+    if self:getProperty():cache().mEntityHostKey then
+        local entity = EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey)
+        if
+        entity and entity.mEntity and entity.mEntity.entityId and
+        entity.mEntity:GetInnerObject() and
                 GetEntityHeadOnObject(
-                    EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId,
-                "Blood/" .. tostring(EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId)
-            ):createChild(
-                {
-                    ui_name = "background",
-                    type = "container",
-                    color = "255 0 0",
-                    align = "_ct",
-                    y = -100,
-                    x = -130,
-                    height = 20,
-                    width = 200,
-                    visible = true
-                }
-            )
-        end
-        if not self.mNameUI then
-            self.mNameUI =
-                GetEntityHeadOnObject(
-                    EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId,
-                "Name/" .. tostring(EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId)
-            ):createChild(
-                {
-                    ui_name = "background",
-                    type = "text",
-                    font_type = "微软雅黑",
-                    font_color = "0 255 0",
-                    font_size = 25,
-                    align = "_ct",
-                    y = -150,
-                    x = -130,
-                    height = 50,
-                    width = 200,
-                    visible = true
-                }
-            )
+                    entity.mEntity.entityId,
+                    "Blood/" .. tostring(entity.mEntity.entityId)
+                )
+        then
+            self.mUIEntityID = entity.mEntity.entityId
+            if not self.mBloodUI then
+                self.mBloodUI =
+                    GetEntityHeadOnObject(
+                        entity.mEntity.entityId,
+                    "Blood/" .. tostring(entity.mEntity.entityId)
+                ):createChild(
+                    {
+                        ui_name = "background",
+                        type = "container",
+                        color = "255 0 0",
+                        align = "_ct",
+                        y = -100,
+                        x = -130,
+                        height = 20,
+                        width = 200,
+                        visible = true
+                    }
+                )
+            end
+            if not self.mNameUI then
+                self.mNameUI =
+                    GetEntityHeadOnObject(
+                        entity.mEntity.entityId,
+                    "Name/" .. tostring(entity.mEntity.entityId)
+                ):createChild(
+                    {
+                        ui_name = "background",
+                        type = "text",
+                        font_type = "微软雅黑",
+                        font_color = "0 255 0",
+                        font_size = 25,
+                        align = "_ct",
+                        y = -150,
+                        x = -130,
+                        height = 50,
+                        width = 200,
+                        visible = true
+                    }
+                )
+            end
         end
     end
     if self.mBloodUI and self.mNameUI then
@@ -6530,6 +6590,13 @@ function Client_GameMonster:_updateBloodUI()
         )
     end
 end
+
+function Client_GameMonster:_generateNextHeadOnUIID()
+    local ret = self.mNextHeadOnUIID
+    self.mNextHeadOnUIID = self.mNextHeadOnUIID + 1
+    return ret
+end
+
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
