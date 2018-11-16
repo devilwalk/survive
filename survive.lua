@@ -1000,14 +1000,15 @@ function EntityCustomManager:construction()
         for _,info in pairs(parameter.mEntities) do
             local entity = self:_createEntity(
                 info.mType,
-                info.mPosition[1],
-                info.mPosition[2],
-                info.mPosition[3],
+                0,
+                0,
+                0,
                 info.mModel,
                 info.mHostKey,
                 info.mScaling,
                 info.mFacing
             )
+            entity.mPosition = vector3d:new(info.mPosition[1],info.mPosition[2],info.mPosition[3])
             entity.mAnimationID = info.mAnimationID
             if info.mTargets then
                 for _,target in pairs(info.mTargets) do
@@ -5356,7 +5357,7 @@ function Host_GameMonster:_updateMoveTarget()
     for _, player in pairs(Host_Game.singleton():getPlayerManager().mPlayers) do
         if player:getProperty():cache().mHP and player:getProperty():cache().mHP > 0 then
             local dst_x, dst_y, dst_z = GetEntityById(player:getID()):GetBlockPos()
-            local dst = vector3d:new(dst_x, dst_y, dst_z)
+            local dst = vector3d:new(dst_x, dst_y, dst_z) - my_block_pos
             local len = dst:length()
             if not select then
                 select = {x = dst_x, y = my_block_pos[2], z = dst_z, length = len}
