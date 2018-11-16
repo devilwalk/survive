@@ -172,8 +172,8 @@ end
 
 function Framework:receiveMsg(parameter)
     if parameter.mKey ~= "GlobalProperty" then
-        --echo("devilwalk", "receiveMsg:parameter:")
-        --echo("devilwalk", parameter)
+        echo("devilwalk", "receiveMsg:parameter:")
+        echo("devilwalk", parameter)
     end
     if parameter.mTo then
         if parameter.mTo == "Host" then
@@ -770,6 +770,10 @@ function EntitySyncerManager:getByEntityID(entityID)
 end
 -----------------------------------------------------------------------------------------EntityCustom-----------------------------------------------------------------------------------------
 function EntityCustom:construction(parameter)
+    self.mModel = parameter.mModel
+    self.mModelResource = parameter.mModelResource
+    self.mType = parameter.mType
+    self.mScaling = parameter.mModelScaling or 1
     local real_x,real_y,real_z = ConvertToRealPosition(parameter.mX,parameter.mY,parameter.mZ)
     self.mPosition = vector3d:new(real_x,real_y,real_z)
     self.mFacing = parameter.mModelFacing or 0
@@ -991,6 +995,30 @@ function EntityCustomManager:construction()
 
     Host.addListener("EntityCustomManager", self)
     Client.addListener("EntityCustomManager", self)
+
+    self:requestToHost("SyncEntities",nil,function(parameter)
+        for _,info in pairs(parameter.mEntities) do
+            local entity = self:_createEntity(
+                info.mType,
+                info.mPosition[1],
+                info.mPosition[2],
+                info.mPosition[3],
+                info.mModel,
+                info.mHostKey,
+                info.mScaling,
+                info.mFacing
+            )
+            entity.mAnimationID = info.mAnimationID
+            if info.mTargets then
+                for _,target in pairs(info.mTargets) do
+                    entity.mTargets[#entity.mTargets+1] = vector3d:new(target[1],target[2],target[3])
+                end
+            end
+            if info.mMoveDirection then
+                entity.mMoveDirection = vector3d:new(info.mMoveDirection[1],info.mMoveDirection[2],info.mMoveDirection[3])
+            end
+        end
+    end)
 end
 
 function EntityCustomManager:destruction()
@@ -1013,15 +1041,15 @@ function EntityCustomManager:receive(parameter)
     local is_responese, _ = string.find(parameter.mMessage, "_Response")
     if is_responese then
         local message = string.sub(parameter.mMessage, 1, is_responese - 1)
-        if self.mResponseCallback[message] then
-            self.mResponseCallback[message](parameter.mParameter)
-            self.mResponseCallback[message] = nil
+        if self.mResponseCallback[message] and self.mResponseCallback[message][parameter.mParameter.mResponseCallbackKey] then
+            self.mResponseCallback[message][parameter.mParameter.mResponseCallbackKey](parameter.mParameter)
+            self.mResponseCallback[message][parameter.mParameter.mResponseCallbackKey] = nil
         end
     else
         if parameter.mMessage == "CreateEntityHost" then
             local host_key = self:_generateNextEntityHostKey()
-            self:hostSendToClient(parameter.mFrom, "CreateEntityHost_Response", {mHostKey = host_key})
-            self:broadcast(
+            self:hostSendToClient(parameter.mFrom, "CreateEntityHost_Response", {mHostKey = host_key,mResponseCallbackKey = parameter.mParameter.mResponseCallbackKey})
+            self:hostBroadcast(
                 "CreateEntity",
                 {
                     mType = parameter.mParameter.mType,
@@ -1054,6 +1082,22 @@ function EntityCustomManager:receive(parameter)
             if parameter.mParameter.mPlayerID ~= GetPlayerId() then
                 self:_createTrackEntity(parameter.mParameter.mTracks)
             end
+        elseif parameter.mMessage == "SyncEntities" then
+            local entities = {}
+            for _,entity in pairs(self.mEntities) do
+                entities[#entities+1] = 
+                {mPosition = entity.mPosition
+                ,mType = entity.mType
+                ,mMoveDirection = entity.mMoveDirection
+                ,mFacing = entity.mFacing
+                ,mModel = entity.mModel
+                ,mModelResource = entity.mModelResource
+                ,mScaling = entity.mScaling
+                ,mHostKey = entity.mHostKey
+                ,mAnimationID = entity.mAnimationID
+                ,mTargets = entity.mTargets}
+            end
+            self:hostSendToClient(parameter.mFrom, "SyncEntities_Response", {mEntities = entities,mResponseCallbackKey = parameter.mParameter.mResponseCallbackKey})
         end
     end
 end
@@ -1064,7 +1108,13 @@ end
 
 function EntityCustomManager:requestToHost(message, parameter, callback)
     self.mResponseCallback = self.mResponseCallback or {}
-    self.mResponseCallback[message] = callback
+    self.mResponseCallback[message] = self.mResponseCallback[message] or  {}
+    self.mResponseCallbackKey = self.mResponseCallbackKey or 1
+    local callback_key = self.mResponseCallbackKey
+    self.mResponseCallbackKey = self.mResponseCallbackKey + 1
+    self.mResponseCallback[message][callback_key] = callback
+    parameter = parameter or {}
+    parameter.mResponseCallbackKey = callback_key
     self:sendToHost(message, parameter)
 end
 
@@ -1076,8 +1126,12 @@ function EntityCustomManager:clientSendToClient(playerID, message, parameter)
     Client.sendToClient(playerID, "EntityCustomManager", {mMessage = message, mParameter = parameter})
 end
 
-function EntityCustomManager:broadcast(message, parameter)
+function EntityCustomManager:clientBroadcast(message, parameter)
     Client.broadcast("EntityCustomManager", {mMessage = message, mParameter = parameter})
+end
+
+function EntityCustomManager:hostBroadcast(message, parameter)
+    Host.broadcast({mKey = "EntityCustomManager", mMessage = message, mParameter = parameter})
 end
 
 function EntityCustomManager:createEntity(parameter,callback)
@@ -1132,7 +1186,7 @@ function EntityCustomManager:destroyEntity(clientKey)
     local client_key = entity.mClientKey
     self:_destroyEntity(entity)
     if host_key then
-        self:broadcast("DestroyEntity", {mHostKey = host_key})
+        self:clientBroadcast("DestroyEntity", {mHostKey = host_key})
     else
         CommandQueueManager.singleton():post(
             new(
@@ -1142,7 +1196,7 @@ function EntityCustomManager:destroyEntity(clientKey)
                     mExecutingCallback = function(command)
                         local fake_entity = self.mFakeEntities[client_key]
                         if fake_entity and fake_entity.mHostKey then
-                            self:broadcast("DestroyEntity", {mHostKey = fake_entity.mHostKey})
+                            self:clientBroadcast("DestroyEntity", {mHostKey = fake_entity.mHostKey})
                             self.mFakeEntities[client_key] = nil
                             command.mState = Command.EState.Finish
                         end
@@ -1155,7 +1209,7 @@ end
 
 function EntityCustomManager:createTrackEntity(tracks)
     self:_createTrackEntity(tracks)
-    self:broadcast("CreateTrackEntity", {mTracks = tracks, mPlayerID = GetPlayerId()})
+    self:clientBroadcast("CreateTrackEntity", {mTracks = tracks, mPlayerID = GetPlayerId()})
 end
 
 function EntityCustomManager:_createEntity(type, x, y, z, path, hostKey, modelScaling, modelFacing)
@@ -1179,6 +1233,7 @@ function EntityCustomManager:_destroyEntity(entity)
 end
 
 function EntityCustomManager:_generateNextEntityHostKey()
+    self.mIsHost = true
     local ret = self.mNextEntityHostKey
     self.mNextEntityHostKey = self.mNextEntityHostKey + 1
     return ret
@@ -2077,7 +2132,7 @@ GameConfig.mMonsterLibrary = {
 GameConfig.mTerrainLibrary = {
     {mTemplateResource = {hash = "FjSzbfpww1S3GAl4lPEniRIsL7nI", pid = "18337", ext = "bmax"}},
     {mTemplateResource = {hash = "FiR4Dr3SzSUP1lSyYqwea3kY0Gt_", pid = "18348", ext = "bmax"}},
-    {mTemplateResource = {hash="Fq8ugoeIBGA5yO-Urgh-AGThSBf_",pid="18829",ext="bmax",}}
+    --{mTemplateResource = {hash="Fq8ugoeIBGA5yO-Urgh-AGThSBf_",pid="18829",ext="bmax",}}
 }
 GameConfig.mSafeHouse = {mTemplateResource = {hash = "FpHOk_oMV1lBqaTtMLjqAtqyzJp4", pid = "5453", ext = "bmax"}}
 GameConfig.mMatch = {
@@ -5868,9 +5923,11 @@ end
 
 function Client_GameMonsterManager:onHit(weapon, result)
     if result.entity then
+        local find
         for _, monster in pairs(self.mMonsters) do
-            if EntityCustomManager.singleton():getEntityByHostKey(monster:getProperty():cache().mEntityHostKey) and result.entity.entityId == EntityCustomManager.singleton():getEntityByHostKey(monster:getProperty():cache().mEntityHostKey).mEntity.entityId then
+            if EntityCustomManager.singleton():getEntityByHostKey(monster:getProperty():cache().mEntityHostKey) and result.entity == EntityCustomManager.singleton():getEntityByHostKey(monster:getProperty():cache().mEntityHostKey).mEntity then
                 monster:onHit(weapon)
+                find = true
                 break
             end
         end
@@ -6460,14 +6517,14 @@ function Client_GameMonster:onHit(weapon)
     EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey) and EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity and
     EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity:GetInnerObject() and
             GetEntityHeadOnObject(
-                EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId,
-                "OnHit/" .. tostring(EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId)
+                EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity,
+                "OnHit/" .. tostring(EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity)
             )
      then
         local ui =
             GetEntityHeadOnObject(
-                EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId,
-            "OnHit/" .. tostring(EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity.entityId)
+                EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity,
+            "OnHit/" .. tostring(EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey).mEntity)
         ):createChild(
             {
                 ui_name = "background",
@@ -6518,19 +6575,18 @@ function Client_GameMonster:_updateBloodUI()
     if self:getProperty():cache().mEntityHostKey then
         local entity = EntityCustomManager.singleton():getEntityByHostKey(self:getProperty():cache().mEntityHostKey)
         if
-        entity and entity.mEntity and entity.mEntity.entityId and
+        entity and entity.mEntity and
         entity.mEntity:GetInnerObject() and
                 GetEntityHeadOnObject(
-                    entity.mEntity.entityId,
-                    "Blood/" .. tostring(entity.mEntity.entityId)
+                    entity.mEntity,
+                    "Blood/" .. tostring(entity.mEntity)
                 )
         then
-            self.mUIEntityID = entity.mEntity.entityId
             if not self.mBloodUI then
                 self.mBloodUI =
                     GetEntityHeadOnObject(
-                        entity.mEntity.entityId,
-                    "Blood/" .. tostring(entity.mEntity.entityId)
+                        entity.mEntity,
+                    "Blood/" .. tostring(entity.mEntity)
                 ):createChild(
                     {
                         ui_name = "background",
@@ -6548,8 +6604,8 @@ function Client_GameMonster:_updateBloodUI()
             if not self.mNameUI then
                 self.mNameUI =
                     GetEntityHeadOnObject(
-                        entity.mEntity.entityId,
-                    "Name/" .. tostring(entity.mEntity.entityId)
+                        entity.mEntity,
+                    "Name/" .. tostring(entity.mEntity)
                 ):createChild(
                     {
                         ui_name = "background",
