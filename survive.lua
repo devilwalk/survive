@@ -940,9 +940,9 @@ function EntityCustom:getPosition()
     return self.mPosition
 end
 
-function EntityCustom:moveToBlock(x,y,z)
+function EntityCustom:moveToBlock(x,y,z,type)
     local real_x,real_y,real_z = ConvertToRealPosition(x,y,z)
-    self:moveTo(real_x,real_y,real_z)
+    self:moveTo(real_x,real_y,real_z,type)
 end
 
 function EntityCustom:moveTo(x,y,z,type)
@@ -5290,7 +5290,7 @@ function Host_GameMonster:_updateMoveTarget()
             if my_block_pos:equals(test_pos) then
                 local offset_x = math.random(-1, 1)
                 local offset_z = math.random(-1, 1)
-                self.mEntity:moveToBlock(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z)
+                self.mEntity:moveToBlock(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z,"addition")
                 self.mHasTarget = true
                 return
             end
@@ -5328,7 +5328,7 @@ function Host_GameMonster:_updateMoveTarget()
 
         if can_direct_move then
             next_pos = self.mEntity:getPosition() + dir
-            self.mEntity:moveTo(next_pos[1],next_pos[2],next_pos[3])
+            self.mEntity:moveTo(next_pos[1],next_pos[2],next_pos[3],"addition")
             self.mHasTarget = true
         else
             local path =
@@ -5351,13 +5351,13 @@ function Host_GameMonster:_updateMoveTarget()
                 end
             )
             if path and #path > 1 then
-                self.mEntity:moveToBlock(path[2][1], my_block_pos[2], path[2][3])
+                self.mEntity:moveToBlock(path[2][1], my_block_pos[2], path[2][3],"addition")
                 self.mHasTarget = true
             else
                 local dir = (vector3d:new(select.x, 0, select.z) - vector3d:new(my_block_pos[1], 0, my_block_pos[3])):normalize()
                 local next_x, nexy_z = math.floor(my_block_pos[1] + dir[1] + 0.5), math.floor(my_block_pos[3] + dir[3] + 0.5)
                 if not GetBlockId(next_x, my_block_pos[2], nexy_z) or GetBlockId(next_x, my_block_pos[2], nexy_z) == 0 then
-                    self.mEntity:moveToBlock(next_x, my_block_pos[2], nexy_z)
+                    self.mEntity:moveToBlock(next_x, my_block_pos[2], nexy_z,"addition")
                     self.mHasTarget = true
                 end
             end
@@ -5369,7 +5369,7 @@ function Host_GameMonster:_updateMoveTarget()
             not GetBlockId(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z) or
                 GetBlockId(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z) == 0
          then
-            self.mEntity:moveToBlock(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z)
+            self.mEntity:moveToBlock(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z,"addition")
             self.mHasTarget = true
         end
     end
