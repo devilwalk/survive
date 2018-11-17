@@ -1,3 +1,4 @@
+local EntityWatcher = require("EntityWatcher")
 local WeaponSystem = require("WeaponSystem")
 local GUI = require("GUI")
 local MiniGameUISystem = InitMiniGameUISystem()
@@ -883,7 +884,9 @@ function EntityCustom:update()
 end
 
 function EntityCustom:sendToHost(message, parameter)
-    Client.sendToHost(self:_getSendKey(), {mMessage = message, mParameter = parameter})
+    if self._getSendKey() then
+        Client.sendToHost(self:_getSendKey(), {mMessage = message, mParameter = parameter})
+    end
 end
 
 function EntityCustom:requestToHost(message, parameter)
@@ -893,15 +896,21 @@ function EntityCustom:requestToHost(message, parameter)
 end
 
 function EntityCustom:hostSendToClient(playerID, message, parameter)
-    Host.sendTo(playerID, {mKey = self:_getSendKey(), mMessage = message, mParameter = parameter})
+    if self._getSendKey() then
+        Host.sendTo(playerID, {mKey = self:_getSendKey(), mMessage = message, mParameter = parameter})
+    end
 end
 
 function EntityCustom:clientSendToClient(playerID, message, parameter)
-    Client.sendToClient(playerID, self:_getSendKey(), {mMessage = message, mParameter = parameter})
+    if self._getSendKey() then
+        Client.sendToClient(playerID, self:_getSendKey(), {mMessage = message, mParameter = parameter})
+    end
 end
 
 function EntityCustom:broadcast(message, parameter)
-    Client.broadcast(self:_getSendKey(), {mMessage = message, mParameter = parameter})
+    if self._getSendKey() then
+        Client.broadcast(self:_getSendKey(), {mMessage = message, mParameter = parameter})
+    end
 end
 
 function EntityCustom:receive(parameter)
