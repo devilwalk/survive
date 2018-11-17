@@ -884,7 +884,7 @@ function EntityCustom:update()
 end
 
 function EntityCustom:sendToHost(message, parameter)
-    if self._getSendKey() then
+    if self:_getSendKey() then
         Client.sendToHost(self:_getSendKey(), {mMessage = message, mParameter = parameter})
     end
 end
@@ -896,19 +896,19 @@ function EntityCustom:requestToHost(message, parameter)
 end
 
 function EntityCustom:hostSendToClient(playerID, message, parameter)
-    if self._getSendKey() then
+    if self:_getSendKey() then
         Host.sendTo(playerID, {mKey = self:_getSendKey(), mMessage = message, mParameter = parameter})
     end
 end
 
 function EntityCustom:clientSendToClient(playerID, message, parameter)
-    if self._getSendKey() then
+    if self:_getSendKey() then
         Client.sendToClient(playerID, self:_getSendKey(), {mMessage = message, mParameter = parameter})
     end
 end
 
 function EntityCustom:broadcast(message, parameter)
-    if self._getSendKey() then
+    if self:_getSendKey() then
         Client.broadcast(self:_getSendKey(), {mMessage = message, mParameter = parameter})
     end
 end
@@ -923,11 +923,17 @@ function EntityCustom:receive(parameter)
         end
     else
         if parameter.mMessage == "SetPosition" then
-            self:_setPosition(parameter.mParameter.mX, parameter.mParameter.mY, parameter.mParameter.mZ)
+            if parameter.mFrom ~= GetPlayerId() then
+                self:_setPosition(parameter.mParameter.mX, parameter.mParameter.mY, parameter.mParameter.mZ)
+            end
         elseif parameter.mMessage == "MoveTo" then
-            self:_moveTo(parameter.mParameter.mX, parameter.mParameter.mY, parameter.mParameter.mZ, parameter.mParameter.mType)
+            if parameter.mFrom ~= GetPlayerId() then
+                self:_moveTo(parameter.mParameter.mX, parameter.mParameter.mY, parameter.mParameter.mZ, parameter.mParameter.mType)
+            end
         elseif parameter.mMessage == "SetAnimationID" then
-            self:_setAnimationID(parameter.mParameter.mID)
+            if parameter.mFrom ~= GetPlayerId() then
+                self:_setAnimationID(parameter.mParameter.mID)
+            end
         end
     end
 end
@@ -941,6 +947,7 @@ function EntityCustom:setHostKey(hostKey)
 end
 
 function EntityCustom:setPosition(x, y, z)
+    self:_setPosition(x,y,z)
     self:broadcast("SetPosition", {mX = x, mY = y, mZ = z})
 end
 
@@ -959,6 +966,7 @@ function EntityCustom:moveToBlock(x,y,z,type)
 end
 
 function EntityCustom:moveTo(x,y,z,type)
+    self:_moveTo(x,y,z,type)
     self:broadcast("MoveTo",{mX = x, mY = y, mZ = z,mType = type})
 end
 
@@ -977,6 +985,7 @@ function EntityCustom:_moveTo(x,y,z,type)
 end
 
 function EntityCustom:setAnimationID(id)
+    self:_setAnimationID(id)
     self:broadcast("setAnimationID",{mID = id})
 end
 
@@ -5215,9 +5224,9 @@ function Host_GameMonster:construction(parameter)
         ,mModelResource = self:getConfig().mModelResource
         ,mModelScaling = self:getConfig().mModelScaling},function(hostKey)
             self.mProperty:safeWrite("mEntityHostKey", hostKey)
+            self.mEntity:setAnimationID(1)
     end)
     self.mEntity = EntityCustomManager.singleton():getEntityByClientKey(client_key)
-    self.mEntity:setAnimationID(1)
     self.mProperty = new(GameMonsterProperty, {mID = self.mID})
 
     self.mProperty:safeWrite("mConfigIndex", parameter.mConfigIndex)
@@ -5242,7 +5251,7 @@ function Host_GameMonster:destruction()
 end
 
 function Host_GameMonster:update()
-    if not self.mEntity then
+    if not self.mEntity  or not self.mEntity.mHostKey then
         return 
     end
     if
@@ -5347,14 +5356,24 @@ function Host_GameMonster:_updateMoveTarget()
         self.mHasTarget = next(self.mEntity.mTargets) ~= nil
         return
     end
+    local function _check(x,y,z)
+        return not GetBlockId(x,y,z) or GetBlockId(x,y,z) == 0
+    end
     local my_block_pos = self.mEntity:getBlockPosition()
+    local offsets = {}
+    for x=-1,1 do
+        for z = -1,1 do
+            if(_check(my_block_pos[1]+x,my_block_pos[2],my_block_pos[3]+z)) then
+                offsets[#offsets+1] = {x,z}
+            end
+        end
+    end
     for _, monster in pairs(Host_Game.singleton():getMonsterManager().mMonsters) do
         if monster ~= self and monster:getEntity() then
             local test_pos = monster:getEntity():getBlockPosition()
             if my_block_pos:equals(test_pos) then
-                local offset_x = math.random(-1, 1)
-                local offset_z = math.random(-1, 1)
-                self.mEntity:moveToBlock(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z,"addition")
+                local offset = offsets[math.random(1,#offsets)] or {0,0}
+                self.mEntity:moveToBlock(my_block_pos[1] + offset[1], my_block_pos[2], my_block_pos[3] + offset[2],"addition")
                 self.mHasTarget = true
                 return
             end
@@ -5427,15 +5446,9 @@ function Host_GameMonster:_updateMoveTarget()
             end
         end
     else
-        local offset_x = math.random(-1, 1)
-        local offset_z = math.random(-1, 1)
-        if
-            not GetBlockId(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z) or
-                GetBlockId(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z) == 0
-         then
-            self.mEntity:moveToBlock(my_block_pos[1] + offset_x, my_block_pos[2], my_block_pos[3] + offset_z,"addition")
-            self.mHasTarget = true
-        end
+        local offset = offsets[math.random(1,#offsets)] or {0,0}
+        self.mEntity:moveToBlock(my_block_pos[1] + offset[1], my_block_pos[2], my_block_pos[3] + offset[2],"addition")
+        self.mHasTarget = true
     end
 end
 -----------------------------------------------------------------------------------------Client_Game-----------------------------------------------------------------------------------
