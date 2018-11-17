@@ -2516,7 +2516,7 @@ local gameUi = {
                         delete(command.mEntitySyncTimer)
                         command.mEntitySyncTimer = nil
                     end
-                    if command.mTimer:total() > 0.5 then
+                    if command.mTimer:total() > 1.5 then
                         EntityCustomManager.singleton():destroyEntity(client_key)
                         command.mState = Command.EState.Finish
                     end
