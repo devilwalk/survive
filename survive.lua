@@ -2178,13 +2178,19 @@ function GameCompute.computePlayerAttackValue(level)
 end
 
 function GameCompute.computePlayerAttackTime(level)
-    local H1 = 0.00005
-    local A8 = level
-    local H2 = -(0.55 + (100 ^ 2 - 1) * H1) / 99
-    local H3 = -H1 + (0.55 + (100 ^ 2 - 1) * H1) / 99 + 0.6
-    local J1 = -H2 / (2 * H1)
-    local J2 = (4 * H1 * H3 - H2 ^ 2) / (4 * H1)
-    return H1 * (A8 - J1) ^ 2 + J2
+	local H2 = 106
+	local H4 = 0.02
+	local H5 = 0.2
+	local H1 = (H4-H5)/((100-H2)^2-(1-H2)^2)
+	local H3 = H4-(H4-H5)*(100-H2)^2/((100-H2)^2-(1-H2)^2)	
+	local A8 = level
+	local attTime
+	if A8<=100 then
+	 	attTime = H1*(A8-H2)^2+H3
+	else
+		attTime = H1*(100-H2)^2+H3-A8*0.00002
+	end	
+    return attTime
 end
 
 function GameCompute.computePlayerAttackTimePercent(level)
@@ -2516,7 +2522,7 @@ local gameUi = {
                         delete(command.mEntitySyncTimer)
                         command.mEntitySyncTimer = nil
                     end
-                    if command.mTimer:total() > 1.5 then
+                    if command.mTimer:total() > 1.6 then
                         EntityCustomManager.singleton():destroyEntity(client_key)
                         command.mState = Command.EState.Finish
                     end
@@ -5424,8 +5430,8 @@ function Host_GameMonster:_updateMoveTarget()
                 select.z,
                 function(x, _, z)
                     if
-                        math.abs(x - my_block_pos[1]) < 5 and
-                            math.abs(z - my_block_pos[3]) < 5
+                        math.abs(x - my_block_pos[1]) < Host_Game.singleton().mScene.mTerrain.mTemplate.mAABBSize[1] and
+                            math.abs(z - my_block_pos[3]) < Host_Game.singleton().mScene.mTerrain.mTemplate.mAABBSize[3]
                     then
                         return (not GetBlockId(x, my_block_pos[2], z)) or (GetBlockId(x, my_block_pos[2], z) == 0)
                     else
@@ -6105,7 +6111,7 @@ function Client_GamePlayer:construction(parameter)
                 if WeaponSystem.get(1) and self.mProperty:cache().mAttackTimeLevel then
                     WeaponSystem.get(1):setProperty(
                         "atk_speed",
-                        GameCompute.computePlayerAttackTime(self.mProperty:cache().mAttackTimeLevel) * 1000
+                        GameCompute.computePlayerAttackTime(self.mProperty:cache().mAttackTimeLevel) * 1000                        
                     )
                 end
             end
@@ -6408,7 +6414,11 @@ function Client_GamePlayer:_equpGun()
     WeaponSystem.get(1):setAmmoCount(30)
     WeaponSystem.get(1):setProperty(
         "atk_speed",
-        GameCompute.computePlayerAttackTime(self.mProperty:cache().mAttackTimeLevel) * 1000
+        GameCompute.computePlayerAttackTime(self.mProperty:cache().mAttackTimeLevel) * 1000        
+    )
+    WeaponSystem.get(1):setProperty(
+        "offset_dy",
+        5
     )
 end
 
