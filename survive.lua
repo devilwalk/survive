@@ -5424,8 +5424,8 @@ function Host_GameMonster:_updateMoveTarget()
                 select.z,
                 function(x, _, z)
                     if
-                        math.abs(x - my_block_pos[1]) < Host_Game.singleton().mScene.mTerrain.mTemplate.mAABBSize[1] and
-                            math.abs(z - my_block_pos[3]) < Host_Game.singleton().mScene.mTerrain.mTemplate.mAABBSize[3]
+                        math.abs(x - my_block_pos[1]) < 5 and
+                            math.abs(z - my_block_pos[3]) < 5
                     then
                         return (not GetBlockId(x, my_block_pos[2], z)) or (GetBlockId(x, my_block_pos[2], z) == 0)
                     else
