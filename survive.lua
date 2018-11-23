@@ -2149,9 +2149,9 @@ GameConfig.mMonsterLibrary = {
   {mModel = "character/v5/02animals/GreenDragon/GreenDragon_02.x", mModelScaling =1, mAttackTime = 1, mStopTime = 1, mAttackRange = 1, mLevelEnable = function(level) if level >= 267 and level <= 320 then return true end end, mName = "绿龙"},
 }
 GameConfig.mTerrainLibrary = {
-    {mTemplateResource = {hash = "FjSzbfpww1S3GAl4lPEniRIsL7nI", pid = "18337", ext = "bmax"}},
-    {mTemplateResource = {hash = "FiR4Dr3SzSUP1lSyYqwea3kY0Gt_", pid = "18348", ext = "bmax"}},
-    --{mTemplateResource = {hash="Fq8ugoeIBGA5yO-Urgh-AGThSBf_",pid="18829",ext="bmax",}}
+    {mTemplateResource = {hash="FiNTczxo76G_BqKW6uqKZIquY9ng",pid="24750",ext="bmax",}},
+    {mTemplateResource = {hash="Fp5LN9bBvj0kbOzlFKFFCd7TygUw",pid="24751",ext="bmax",}},
+    {mTemplateResource = {hash="Fkx7yefxch4kp-gLsD0j8UcmX0jG",pid="24752",ext="bmax",}}
 }
 GameConfig.mSafeHouse = {mTemplateResource = {hash = "FpHOk_oMV1lBqaTtMLjqAtqyzJp4", pid = "5453", ext = "bmax"}}
 GameConfig.mMatch = {
@@ -6411,7 +6411,11 @@ end
 function Client_GamePlayer:_equpGun()
     self:_updateGun()
     -- 设置枪里起始的子弹
-    WeaponSystem.get(1):setAmmoCount(30)
+    -- WeaponSystem.get(1):setAmmoCount(30)
+    WeaponSystem.get(1):setProperty(
+        "ammo",
+        90       
+    )
     WeaponSystem.get(1):setProperty(
         "atk_speed",
         GameCompute.computePlayerAttackTime(self.mProperty:cache().mAttackTimeLevel) * 1000        
