@@ -4345,6 +4345,15 @@ function Host_Game:construction()
     self.mProperty = new(GameProperty)
     self.mEffectManager = new(Host_GameEffectManager)
     self.mSafeHouse = {}
+    self.mTerrains = {}
+    for _,terrain in pairs(GameConfig.mTerrainLibrary) do
+        self.mTerrains[#self.mTerrains+1] = terrain
+    end
+    if ExternTerrainResources then
+        for _,res in pairs(ExternTerrainResources) do
+            self.mTerrains[#self.mTerrains+1] = {mTemplateResource = res}
+        end
+    end
     local x, y, z = GetHomePosition()
     x, y, z = ConvertToBlockIndex(x, y + 0.5, z)
     y = y - 1
@@ -4664,7 +4673,7 @@ end
 function Host_Game:_startMatch(callback)
     local scene = {mLevel = self.mProperty:cache().mLevel}
     local terrains = {}
-    for _, terrain in pairs(GameConfig.mTerrainLibrary) do
+    for _, terrain in pairs(self.mTerrains) do
         if not terrain.mLevel or terrain.mLevel == self.mProperty:cache().mLevel then
             terrains[#terrains + 1] = terrain
         end
